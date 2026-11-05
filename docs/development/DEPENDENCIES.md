@@ -79,3 +79,21 @@ the [official image listing](https://hub.docker.com/_/golang). Runtime is
 `gcr.io/distroless/static-debian12:nonroot`. Tags are mutable; release automation
 must resolve tested image digests and preserve an SBOM before publishing. Docker
 is unavailable in the current workspace, so the container image has not been built.
+
+## Mail protocol adapter additions (batch 3 skeleton, 2026-11-06)
+
+| Dependency | Fixed version | Purpose | License / evidence |
+| --- | --- | --- | --- |
+| github.com/emersion/go-imap/v2 | v2.0.0-beta.8 | IMAP receiving adapter in the batch 3 mail adapter package (`server/internal/mailadapter`), 尚未接入任何 HTTP handler/真实服务; newest published beta, no advisory in govulncheck on 2026-11-06 | MIT; LICENSE inspected in the module cache |
+| github.com/emersion/go-message | v0.18.2 | Untrusted-input MIME parsing for the same adapter skeleton, 尚未接入任何 HTTP handler/真实服务 | MIT; LICENSE inspected in the module cache |
+| github.com/emersion/go-smtp | v0.21.3 | SMTP Submission sending adapter for the same adapter skeleton, 尚未接入任何 HTTP handler/真实服务 | MIT; LICENSE inspected in the module cache |
+
+`internal/mailadapter` isolates these protocol libraries: as of this record no
+`cmd/` or `internal/httpapi` package imports the adapter or any emersion module
+directly. `go.sum` additionally carries graph-only entries for
+`github.com/emersion/go-sasl` (required module of go-imap and go-smtp, MIT) and
+`golang.org/x/text` (go.mod-only entries of go-message); no code from them is
+compiled into the server. The MIME parser deliberately does not import
+`go-message/charset`, which would compile `golang.org/x/text` in; unsupported
+charsets degrade with an error instead of being decoded. Re-check licenses and
+advisories again before the adapter is wired into any real service.
