@@ -13,9 +13,10 @@
  * limitations under the License.
  */
 
-import { AbilityConstant, ConfigurationConstant, UIAbility, Want } from '@kit.AbilityKit';
+import { AbilityConstant, UIAbility, Want } from '@kit.AbilityKit';
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import { window } from '@kit.ArkUI';
+import { RelayStore } from '../common/RelayStore';
 
 const DOMAIN = 0x0000;
 
@@ -25,8 +26,11 @@ export default class EntryAbility extends UIAbility {
     if (typeof invitation === 'string' && /^[0-9a-fA-F-]{36}$/.test(invitation)) {
       AppStorage.setOrCreate<string>('relay_invitation_id', invitation)
     }
+    // 主题：默认跟随系统（COLOR_MODE_NOT_SET）；配置页覆盖 light/dark 并持久化到
+    // preferences，启动时在此恢复。页面颜色全部走资源引用，跟随 setColorMode。
+    const themeMode = RelayStore.themeMode(this.context);
     try {
-      this.context.getApplicationContext().setColorMode(ConfigurationConstant.ColorMode.COLOR_MODE_NOT_SET);
+      RelayStore.applyColorMode(this.context.getApplicationContext(), themeMode);
     } catch (err) {
       hilog.error(DOMAIN, 'testTag', 'Failed to set colorMode. Cause: %{public}s', JSON.stringify(err));
     }

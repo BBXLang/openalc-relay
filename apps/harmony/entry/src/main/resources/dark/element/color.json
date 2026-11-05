@@ -3,6 +3,42 @@
     {
       "name": "start_window_background",
       "value": "#000000"
+    },
+    {
+      "name": "relay_canvas",
+      "value": "#111214"
+    },
+    {
+      "name": "relay_surface",
+      "value": "#1D1E20"
+    },
+    {
+      "name": "relay_ink",
+      "value": "#F4F4F5"
+    },
+    {
+      "name": "relay_muted",
+      "value": "#A1A1AA"
+    },
+    {
+      "name": "relay_segment",
+      "value": "#2B2C2F"
+    },
+    {
+      "name": "relay_accent",
+      "value": "#FFD12E"
+    },
+    {
+      "name": "relay_accent_text",
+      "value": "#111214"
+    },
+    {
+      "name": "relay_border",
+      "value": "#33343A"
+    },
+    {
+      "name": "relay_scrim",
+      "value": "#8C000000"
     }
   ]
 }

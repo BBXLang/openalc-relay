@@ -10,7 +10,533 @@
     },
     {
       "name": "EntryAbility_label",
-      "value": "Relay 界面预览"
+      "value": "Relay"
+    },
+
+    {
+      "name": "channel_sms",
+      "value": "短信"
+    },
+    {
+      "name": "channel_mail",
+      "value": "邮件"
+    },
+    {
+      "name": "menu_open",
+      "value": "打开侧栏菜单"
+    },
+    {
+      "name": "search",
+      "value": "搜索"
+    },
+    {
+      "name": "back",
+      "value": "返回"
+    },
+    {
+      "name": "dialog_ok",
+      "value": "知道了"
+    },
+    {
+      "name": "close_drawer",
+      "value": "关闭侧栏"
+    },
+    {
+      "name": "segment_a11y",
+      "value": "频道切换"
+    },
+
+    {
+      "name": "formal_sync_not_connected",
+      "value": "正式同步未接通——待服务端开放"
+    },
+    {
+      "name": "sms_list_empty_detail",
+      "value": "短信会话将在设备配对与正式同步开放后显示。"
+    },
+    {
+      "name": "mail_list_empty_detail",
+      "value": "邮件将在正式同步开放后显示。"
+    },
+    {
+      "name": "state_block_retry",
+      "value": "重试"
+    },
+
+    {
+      "name": "search_in_sms",
+      "value": "搜索短信"
+    },
+    {
+      "name": "search_in_mail",
+      "value": "搜索邮件"
+    },
+    {
+      "name": "search_field_hint",
+      "value": "搜索当前频道"
+    },
+    {
+      "name": "search_clear",
+      "value": "清空"
+    },
+    {
+      "name": "search_scope_sms",
+      "value": "搜索范围：发送方、收件方和正文。"
+    },
+    {
+      "name": "search_scope_mail",
+      "value": "搜索范围：发件方、收件方、主题和正文。"
+    },
+    {
+      "name": "search_unavailable",
+      "value": "正式搜索未接通——待服务端开放"
+    },
+    {
+      "name": "search_unavailable_detail_sms",
+      "value": "搜索只在当前短信频道内进行，不会混合邮件结果。"
+    },
+    {
+      "name": "search_unavailable_detail_mail",
+      "value": "搜索只在当前邮件频道内进行，不会混合短信结果。"
+    },
+
+    {
+      "name": "detail_sms_title",
+      "value": "短信详情"
+    },
+    {
+      "name": "detail_mail_title",
+      "value": "邮件详情"
+    },
+    {
+      "name": "detail_device_title",
+      "value": "设备详情"
+    },
+    {
+      "name": "detail_unavailable",
+      "value": "正式同步未接通——暂时无法显示该内容"
+    },
+    {
+      "name": "detail_id_label",
+      "value": "内容 ID：%1$s"
+    },
+
+    {
+      "name": "drawer_by_openalc",
+      "value": "by OpenALC"
+    },
+    {
+      "name": "drawer_devices",
+      "value": "设备"
+    },
+    {
+      "name": "drawer_mail",
+      "value": "邮件"
+    },
+    {
+      "name": "drawer_settings",
+      "value": "配置"
+    },
+    {
+      "name": "drawer_no_devices",
+      "value": "暂无已配对设备"
+    },
+    {
+      "name": "drawer_pair_device",
+      "value": "配对新设备"
+    },
+    {
+      "name": "drawer_pairing_unavailable",
+      "value": "正式设备配对未接通——请等待服务端开放后重试。"
+    },
+    {
+      "name": "drawer_no_accounts",
+      "value": "暂无邮箱账号"
+    },
+    {
+      "name": "drawer_add_account",
+      "value": "添加邮箱账号"
+    },
+    {
+      "name": "drawer_sim_labels",
+      "value": "SIM：%1$s"
+    },
+    {
+      "name": "drawer_account_status",
+      "value": "连接状态：%1$s"
+    },
+    {
+      "name": "drawer_footer_notice",
+      "value": "Relay 是跨设备的个人短信与邮件管理工具。设备配对、正式同步与远程发送将在正式服务开放后逐项提供。"
+    },
+
+    {
+      "name": "compose_recipient_sms_hint",
+      "value": "收件人号码"
+    },
+    {
+      "name": "compose_recipient_mail_hint",
+      "value": "收件人地址"
+    },
+    {
+      "name": "compose_body_sms_hint",
+      "value": "输入短信内容"
+    },
+    {
+      "name": "compose_body_mail_hint",
+      "value": "写邮件"
+    },
+    {
+      "name": "compose_send",
+      "value": "发送"
+    },
+    {
+      "name": "compose_send_disabled_reason",
+      "value": "正式链路未接通，发送暂不可用"
+    },
+    {
+      "name": "compose_source_sms",
+      "value": "设备／SIM"
+    },
+    {
+      "name": "compose_source_mail",
+      "value": "发件账号"
+    },
+    {
+      "name": "compose_source_unselected",
+      "value": "未选择"
+    },
+    {
+      "name": "compose_source_unavailable",
+      "value": "正式链路未接通——暂时没有可选的设备、SIM 或邮箱账号。正式开放后将在此选择来源，发送前会再次展示设备、SIM、收件方和正文并要求确认。"
+    },
+
+    {
+      "name": "settings_title",
+      "value": "配置"
+    },
+    {
+      "name": "settings_appearance",
+      "value": "外观"
+    },
+    {
+      "name": "theme_light",
+      "value": "亮色"
+    },
+    {
+      "name": "theme_dark",
+      "value": "暗色"
+    },
+    {
+      "name": "theme_system",
+      "value": "跟随系统"
+    },
+    {
+      "name": "settings_services",
+      "value": "服务"
+    },
+    {
+      "name": "settings_pairing",
+      "value": "配对与撤销"
+    },
+    {
+      "name": "not_connected_short",
+      "value": "未接通"
+    },
+    {
+      "name": "settings_mail_accounts",
+      "value": "邮箱管理"
+    },
+    {
+      "name": "settings_security_sync",
+      "value": "安全与同步状态"
+    },
+    {
+      "name": "settings_security_unavailable",
+      "value": "正式服务未接通"
+    },
+    {
+      "name": "settings_developer",
+      "value": "开发"
+    },
+    {
+      "name": "settings_synthetic_verification",
+      "value": "合成验证（仅开发）"
+    },
+    {
+      "name": "settings_footer_notice",
+      "value": "主题覆盖会保存在本机。配对、邮箱与安全状态将在正式服务开放后在此显示。"
+    },
+
+    {
+      "name": "mail_accounts_title",
+      "value": "邮箱账号"
+    },
+    {
+      "name": "mail_accounts_status",
+      "value": "正式服务未接通——暂时无法添加邮箱账号"
+    },
+    {
+      "name": "mail_accounts_plan",
+      "value": "首批支持手动填写 IMAP／SMTP 参数的通用邮箱：凭证在服务端加密保存，可替换和撤销；首次默认导入最近 90 天收件箱，Relay 新发邮件保留在本系统已发送记录中。"
+    },
+    {
+      "name": "mail_accounts_add",
+      "value": "添加邮箱账号"
+    },
+    {
+      "name": "mail_accounts_add_disabled",
+      "value": "正式服务开放后才能添加账号并进行连接测试。"
+    },
+
+    {
+      "name": "demo_badge",
+      "value": "演示数据"
+    },
+    {
+      "name": "demo_section_title",
+      "value": "演示卡片"
+    },
+    {
+      "name": "demo_section_notice",
+      "value": "以下卡片为演示数据，不代表真实会话，也不会上传；正式卡片只会出现在正式列表和详情中。"
+    },
+    {
+      "name": "number_unconfirmed",
+      "value": "号码未确认"
+    },
+    {
+      "name": "demo_sms_device",
+      "value": "演示设备 A"
+    },
+    {
+      "name": "demo_sms_sim",
+      "value": "SIM 1"
+    },
+    {
+      "name": "demo_sms_number",
+      "value": "10000000000（演示）"
+    },
+    {
+      "name": "demo_sms_sender",
+      "value": "10000000001（演示）"
+    },
+    {
+      "name": "demo_sms_sender_alt",
+      "value": "10000000002（演示）"
+    },
+    {
+      "name": "demo_sms_snippet",
+      "value": "这是一条演示短信卡片，仅用于界面验证。"
+    },
+    {
+      "name": "demo_sms_snippet_alt",
+      "value": "本机号码无法可靠读取时，卡片会显示“号码未确认”，不会推测号码。"
+    },
+    {
+      "name": "demo_sms_time",
+      "value": "14:30"
+    },
+    {
+      "name": "demo_sms_time_alt",
+      "value": "昨天"
+    },
+    {
+      "name": "demo_sms_status",
+      "value": "收发状态：演示"
+    },
+    {
+      "name": "demo_mail_account",
+      "value": "demo@example.com（演示）"
+    },
+    {
+      "name": "demo_mail_sender",
+      "value": "sender@example.com（演示）"
+    },
+    {
+      "name": "demo_mail_subject",
+      "value": "演示邮件主题"
+    },
+    {
+      "name": "demo_mail_snippet",
+      "value": "这是一封演示邮件卡片，仅用于界面验证。"
+    },
+    {
+      "name": "demo_mail_time",
+      "value": "11-06"
+    },
+    {
+      "name": "attachment_mark",
+      "value": "附件"
+    },
+    {
+      "name": "mail_card_account_prefix",
+      "value": "收件账号："
+    },
+    {
+      "name": "mail_unread_state",
+      "value": "未读"
+    },
+    {
+      "name": "mail_read_state",
+      "value": "已读"
+    },
+    {
+      "name": "sms_direction_received",
+      "value": "收到"
+    },
+    {
+      "name": "sms_direction_sent",
+      "value": "发出"
+    },
+
+    {
+      "name": "synthetic_verification_title",
+      "value": "合成验证（仅开发）"
+    },
+    {
+      "name": "synthetic_link_notice",
+      "value": "HarmonyOS 合成链路验证"
+    },
+    {
+      "name": "synthetic_page_notice",
+      "value": "仅连接本机回环测试服务。没有短信、号码、正式发送或推送。"
+    },
+    {
+      "name": "synthetic_panel_title",
+      "value": "本机合成验证"
+    },
+    {
+      "name": "synthetic_upload_button",
+      "value": "上传固定合成事件"
+    },
+    {
+      "name": "synthetic_upload_hint_unpaired",
+      "value": "请先完成模拟器配对"
+    },
+    {
+      "name": "pairing_section_title",
+      "value": "模拟器配对"
+    },
+    {
+      "name": "pairing_section_detail",
+      "value": "输入管理员创建的 5 分钟配对编号。凭证仅保存在本次进程内。"
+    },
+    {
+      "name": "pairing_invitation_hint",
+      "value": "配对编号"
+    },
+    {
+      "name": "pairing_apply",
+      "value": "申请配对"
+    },
+    {
+      "name": "pairing_compare_code",
+      "value": "核对码：%1$s"
+    },
+    {
+      "name": "pairing_finish",
+      "value": "批准后完成配对"
+    },
+    {
+      "name": "synthetic_ping_section",
+      "value": "合成服务端指令"
+    },
+    {
+      "name": "synthetic_pull_ping",
+      "value": "拉取 ping"
+    },
+    {
+      "name": "synthetic_ack_ping",
+      "value": "确认并回执"
+    },
+    {
+      "name": "pairing_status_none",
+      "value": "未配对"
+    },
+    {
+      "name": "pairing_input_incomplete",
+      "value": "请输入完整的配对编号"
+    },
+    {
+      "name": "pairing_request_ok",
+      "value": "请在管理员端核对验证码并批准"
+    },
+    {
+      "name": "pairing_request_failed",
+      "value": "配对申请失败，请检查本机隧道或邀请有效期"
+    },
+    {
+      "name": "pairing_need_request",
+      "value": "请先提交配对申请"
+    },
+    {
+      "name": "pairing_done",
+      "value": "已配对，仅限本次模拟器进程"
+    },
+    {
+      "name": "pairing_finish_failed",
+      "value": "尚未批准或配对已过期，请在管理员端检查"
+    },
+    {
+      "name": "event_status_none",
+      "value": "尚无合成事件"
+    },
+    {
+      "name": "ping_status_none",
+      "value": "尚无服务端指令"
+    },
+    {
+      "name": "event_status_pending",
+      "value": "本地有待确认的合成事件"
+    },
+    {
+      "name": "ping_status_pending",
+      "value": "服务端指令待回执"
+    },
+    {
+      "name": "queue_read_failed",
+      "value": "本地队列读取失败"
+    },
+    {
+      "name": "event_need_pairing",
+      "value": "请先完成模拟器配对"
+    },
+    {
+      "name": "event_accepted",
+      "value": "合成事件已提交"
+    },
+    {
+      "name": "event_duplicate",
+      "value": "重试去重已确认"
+    },
+    {
+      "name": "event_send_unconfirmed",
+      "value": "发送未确认，合成事件留在本地待重试"
+    },
+    {
+      "name": "ping_pull_failed",
+      "value": "拉取失败，请检查连接或设备权限"
+    },
+    {
+      "name": "ping_empty",
+      "value": "暂无待接收的服务端指令"
+    },
+    {
+      "name": "ping_received",
+      "value": "已收到服务端合成 ping，等待手动回执"
+    },
+    {
+      "name": "ping_need_ack",
+      "value": "没有需要回执的服务端指令"
+    },
+    {
+      "name": "ping_acked",
+      "value": "服务端合成 ping 已回执"
+    },
+    {
+      "name": "ping_ack_unconfirmed",
+      "value": "回执未确认，稍后可用同一编号重试"
     }
   ]
 }
