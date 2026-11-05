@@ -24,9 +24,18 @@
 | Wave 1 | Web 正式 UI（SubAgent A）+ Android 正式 UI（SubAgent B） | ✅ 完成（01:50 收口） | 3 笔本地提交 |
 | Wave 2 | HarmonyOS 正式 UI（SubAgent C）+ 服务端数据基础（SubAgent D） | ✅ 完成（03:15 收口） | 2 笔本地提交 |
 | Wave 3 | 邮件适配包骨架（SubAgent E）+ 共享设计规范更新 + 截图证据 | ✅ 完成（04:05 收口） | 2 笔本地提交 |
-| Wave 4 | 只读端点切片（提前完成）→ 冻结与交接证据终稿（07:30 起） | 🔄 进行中 | 1 笔提交 +终稿待提交 |
+| Wave 4 | 只读端点切片（04:30 提前）+ 同步切片（04:50 提前）+ 短信命令切片（05:30 提前）+ CI 对齐验证电池 + 终稿 | ✅ 完成（05:40 收口，早于 07:30 冻结线；剩余待办均被用户资源/设备阻塞，按"阻塞项跳过"指令提前收官） | 4 笔本地提交 |
+
+**执行结论：全部完成。** 夜间共 6 个 SubAgent（A/B/C/D/E/F/G，其中 G=同步切片、最后一棒=短信命令），任何时刻并行 ≤2。提交共 15 笔（含 2 笔 docs 台账），全部在 `codex/server-mvp` 本地，未推送远程。
 
 ## 已完成明细
+
+### Wave 6（05:30 收口）— 批次 3 增量：owner 侧短信发送命令端点 + CI 对齐验证电池
+
+**短信命令端点（SubAgent G-2）**：`server/internal/httpapi/sms_commands.go`——`POST /v1/sms/send-commands`（confirm:true 强制显式确认→400 missing_confirmation；幂等键 16–128 可打印 ASCII，同键同内容 200 重放 `idempotent_replay:true`、异内容 409；每 owner 请求限速 60/min 429 rate_limited + 排队上限 429 queue_limit；撤销设备 403；审计仅 device_id+status 无 payload，重放不加审计行）、`GET .../{command_id}`（状态响应物理上无收件号/正文/密文字段）、`GET /v1/sms/send-commands?device_id=&status=&cursor=`（六状态白名单枚举 + keyset 分页）。无设备领取/跃迁端点（claim 路径 404，命令诚实停留 queued，不伪造时间戳）。OpenAPI 0.5.0→0.6.0（26 paths）+ 契约测试同变更。
+**必要缺陷修复（超出"只新增"的最小例外，已独立复核）**：批次 2 `CreateCommand` 幂等重放分支 SELECT 缺 `created_at_ms`（重放响应会返回 1970 epoch），仅补一列，语义/状态机未动，既有测试全过。
+**CI 对齐验证电池**：`:app:assembleDebug` 完整 APK BUILD SUCCESSFUL 1m58s（CI android-build 对齐）；`scripts/test-web-poc.ps1` 三端链经 pwsh 7 全过——npm ci→vue-tsc 构建→Gradle JVM Room 测试→100 条 fixture 持久化→真实 HTTP collector→Playwright **26/26**（47.6s，PoC 链 + 正式导航 × desktop/mobile）（CI android-core 对齐）。环境注记：本宿主该脚本须用 pwsh 7（powershell.exe 5.1 因缺 System.Net.Http 程序集与 JDK25 stderr 警告中断，CI windows-latest 不受影响）。
+验证（独立复核 `-count=1`）：httpapi 25.7s / smsstore 7.6s ok；全量 **16 包** ok；vet/build/gofmt/`go mod verify` 干净。
 
 ### Wave 5（04:50 收口）— 批次 3 增量：邮件收件箱增量同步 + 连接测试切片
 
@@ -73,6 +82,8 @@
 - govulncheck 23 条 stdlib 发现（go1.26.0 vs 1.26.1）与 x/crypto GO-2026-5932 为批次前已存在，与本轮无关。
 - HarmonyOS：系统返回手势逐级回退（CLI 未模拟）、平板视口、暗色对比度正式测量、TalkBack、ANIMATOR_DURATION_SCALE 真机生效、合成链路端到端（需本机 collector 在线）、真机安装/签名。
 - 服务端：端口/私网允许列表与证书主机名校验属批次 3 连接层（RFC 已定义未实现）；Android 设备侧领取/上报协议需真机；OpenAPI 4096 字节请求体上限对长正文场景需批次 3 复核。
+- 服务端（同步切片）：生产部署 `WriteTimeout:10s` 短于适配器 60s 会话上限，真实网络同步可能被 HTTP 层先掐断（部署时调 WriteTimeout 或缩短 IMAPConfig.Timeout）；生产 allowlist 管理配置未接管理面（当前生产=严格默认策略）；CI Linux race 结果待确认。
+- 服务端（短信命令切片）：队列满时同键同内容重放先撞 queue_limit(429) 而非返回既有命令（批次 2 检查顺序：先排队上限后幂等），严格按 I2 应返回既有命令——建议设备侧切片时一并调整并补测试；请求限速常量 60/min 未配置化。
 - Android：滑动手势/动画观感、键盘遮挡、TalkBack、暗色对比度——仅编译级验证，无真机/模拟器。
 - Web：真机视口外手势与键盘遮挡；暗色对比度未正式测量；低端浏览器 popstate 行为。
 - 两端正式列表均为诚实空态（「正式同步未接通」），卡片 onClick/数据源等待批次 2/3。
@@ -95,4 +106,15 @@
 
 ## 待办（交接种子）
 
-（随执行追加）
+按优先级（前 4 项属批次 3 收尾，其后属批次 4/后续）：
+
+1. **三端接通正式 API**（OpenAPI 0.5.0 已就绪）：三端 StateBlock「正式同步未接通」锁定态替换为真实数据源；卡片 onClick→详情；搜索页接 `/v1/mail/search`、`/v1/sms/search`；来源筛选/分页 UI；草稿加密（当前仅本地临时明文，两端代码有锚点注释）。
+2. **Android 正式 Agent**（批次 3 核心，未动工）：真实短信入站本机加密落盘→固定事件 ID 上传→事务后 ACK；用户选定的 SIM/订阅；单条发送的状态机领取/回调协议（设备凭证扩展）；正式模块与合成 PoC 分离。
+3. **短信发送命令的设备侧端点**：领取/开始执行/系统发送回调/送达回执（owner 侧幂等键+限速+审计的存储层已就绪，RFC-0003 §3）。
+4. **HTML 净化接入 HTTP 面**：`mailbox.go` 的 `html_notice` 锚点接同源净化器；Web `sanitizeHtml.ts` 换经审计的 DOMPurify（固定版本）。
+5. **附件**：适配层 FETCH 附件与大小上限执行（应用默认 10 MiB，库层 CHECK 64 MiB）；附件列表/按需下载端点；加密缓存。
+6. **后台同步调度**：有界轮询、失败退避、最近成功时间暴露到配置页（当前仅手动 sync 端点）。
+7. **管理面**：生产 allowlist 配置入口（`NewBusinessHandlerWithMailSync` 接线）；部署时核对 HTTP WriteTimeout 与 IMAP 会话时长（见 Needs Verification）。
+8. **审计查询端点**与保留策略（audit_entries 写入已就绪）。
+9. **批次 4 部署门槛**：Rocky Linux HTTPS、备份/恢复、密钥分离、权限核查；实际域名/主机/证书在部署任务核对，不得从现有资料猜测。
+10. **实测清单**（均需用户授权/提供资源）：两家真实服务商邮件收发（含抄送/附件）；两台小米真机矩阵（系统 build/权限/SIM/锁屏/断网/重启/样本数）；HarmonyOS 真机；Android/HarmonyOS 模拟器 UI 亮暗+手势+无障碍验收。
