@@ -5,100 +5,54 @@ import android.content.pm.PackageManager
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
-import androidx.activity.enableEdgeToEdge
 import androidx.activity.compose.setContent
-import androidx.annotation.StringRes
+import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.res.stringResource
-import java.util.UUID
-import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.launch
-import org.openalc.relay.poc.QueueCounts
-import org.openalc.relay.poc.StoredEvent
+import org.openalc.relay.poc.android.navigation.RelayApp
+import org.openalc.relay.poc.android.navigation.RelayAppState
+import org.openalc.relay.poc.android.poc.PocUiState
+import org.openalc.relay.poc.android.theme.RelayTheme
+import org.openalc.relay.poc.android.theme.ThemeMode
 
+/**
+ * Hosts the formal Relay UI (self-managed navigation, no navigation library) and the theme.
+ * All former PoC operations live behind the synthetic verification destination; the PoC
+ * application logic (Room queue, WorkManager workers, SyntheticSmsReceiver) is untouched.
+ */
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge(
-            statusBarStyle = SystemBarStyle.light(android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT),
-            navigationBarStyle = SystemBarStyle.light(android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT),
-        )
+        enableEdgeToEdge()
         val application = application as PocApplication
+        val permissionGranted =
+            checkSelfPermission(Manifest.permission.RECEIVE_SMS) == PackageManager.PERMISSION_GRANTED
         setContent {
-            var counts by remember { mutableStateOf(QueueCounts(0, 0, 0)) }
-            var installationId by remember { mutableStateOf<String?>(null) }
-            var paused by remember { mutableStateOf(application.uploadsPaused) }
-            var fixture by remember { mutableStateOf(UUID.randomUUID().toString()) }
-            var permission by remember {
-                mutableStateOf(checkSelfPermission(Manifest.permission.RECEIVE_SMS) == PackageManager.PERMISSION_GRANTED)
+            val state = remember { RelayAppState(applicationContext) }
+            val poc = remember { PocUiState(application, permissionGranted) }
+            LaunchedEffect(poc) { poc.observeIdentityAndCounts() }
+            // Keep the transparent system bars readable in both themes and honour the override.
+            val useDarkIcons = when (state.themeMode) {
+                ThemeMode.LIGHT -> true
+                ThemeMode.DARK -> false
+                ThemeMode.SYSTEM -> !isSystemInDarkTheme()
             }
-            val recent by application.outbox.observeRecent().collectAsState(initial = emptyList<StoredEvent>())
-            val diagnostic by application.diagnostic.collectAsState()
-            LaunchedEffect(Unit) {
-                try {
-                    installationId = application.initializeIdentity()
-                    application.outbox.observeCounts().collect { counts = it }
-                } catch (error: CancellationException) {
-                    throw error
-                } catch (_: Exception) {
-                    application.diagnostic.value = "queue_read_failed"
+            SideEffect {
+                val style = if (useDarkIcons) {
+                    SystemBarStyle.light(
+                        android.graphics.Color.TRANSPARENT,
+                        android.graphics.Color.TRANSPARENT,
+                    )
+                } else {
+                    SystemBarStyle.dark(android.graphics.Color.TRANSPARENT)
                 }
+                enableEdgeToEdge(statusBarStyle = style, navigationBarStyle = style)
             }
-            RelayInboxScreen(
-                counts = counts,
-                recent = recent,
-                installationId = installationId,
-                status = stringResource(diagnosticMessage(diagnostic)),
-                permission = permission,
-                paused = paused,
-                fixture = fixture,
-                onPauseChanged = {
-                    try {
-                        application.pauseUploads(it)
-                        paused = it
-                    } catch (_: Exception) {
-                        application.diagnostic.value = "pause_control_failed"
-                    }
-                },
-                onNewFixture = { fixture = UUID.randomUUID().toString() },
-                onPersistFixture = {
-                    val id = fixture
-                    application.scope.launch {
-                        try {
-                            application.captureFixture(id, "injected")
-                        } catch (error: CancellationException) {
-                            throw error
-                        } catch (_: Exception) {
-                            application.diagnostic.value = "capture_failed"
-                        }
-                    }
-                },
-                onRequestSync = { application.scope.launch { application.syncOnUserRequest() } },
-            )
+            RelayTheme(themeMode = state.themeMode) {
+                RelayApp(state = state, poc = poc)
+            }
         }
     }
-}
-
-@StringRes
-private fun diagnosticMessage(code: String): Int = when (code) {
-    "idle" -> R.string.status_idle
-    "startup_failed" -> R.string.status_startup_failed
-    "queue_read_failed" -> R.string.status_queue_read_failed
-    "pause_control_failed" -> R.string.status_pause_control_failed
-    "injected_persisted" -> R.string.status_injected_persisted
-    "injected_duplicate" -> R.string.status_injected_duplicate
-    "sms_broadcast_persisted" -> R.string.status_sms_persisted
-    "sms_broadcast_duplicate" -> R.string.status_sms_duplicate
-    "capture_failed" -> R.string.status_capture_failed
-    "capture_interrupted" -> R.string.status_capture_interrupted
-    "sync_complete" -> R.string.status_sync_complete
-    "sync_paused" -> R.string.status_sync_paused
-    "sync_waiting_retry" -> R.string.status_sync_waiting_retry
-    "sync_failed" -> R.string.status_sync_failed
-    else -> R.string.status_unknown
 }

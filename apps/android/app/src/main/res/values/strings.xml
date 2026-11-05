@@ -1,6 +1,124 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Relay 合成验证</string>
+    <string name="app_name">Relay</string>
+
+    <!-- Formal channels and top bar -->
+    <string name="channel_sms">短信</string>
+    <string name="channel_mail">邮件</string>
+    <string name="menu_open">打开菜单</string>
+    <string name="search">搜索</string>
+    <string name="back">返回</string>
+    <string name="dialog_ok">知道了</string>
+
+    <!-- Formal list states (honest, no fabricated sessions) -->
+    <string name="formal_sync_not_connected">正式同步未接通——待服务端开放</string>
+    <string name="sms_list_empty_detail">短信会话将在设备配对与正式同步开放后显示。</string>
+    <string name="mail_list_empty_detail">邮件将在正式同步开放后显示。</string>
+
+    <!-- StateBlock -->
+    <string name="state_block_retry">重试</string>
+
+    <!-- Search -->
+    <string name="search_in_sms">搜索短信</string>
+    <string name="search_in_mail">搜索邮件</string>
+    <string name="search_field_hint">搜索当前频道</string>
+    <string name="search_clear">清空</string>
+    <string name="search_scope_sms">搜索范围：发送方、收件方和正文。</string>
+    <string name="search_scope_mail">搜索范围：发件方、收件方、主题和正文。</string>
+    <string name="search_unavailable">正式搜索未接通——待服务端开放</string>
+    <string name="search_unavailable_detail_sms">搜索只在当前短信频道内进行，不会混合邮件结果。</string>
+    <string name="search_unavailable_detail_mail">搜索只在当前邮件频道内进行，不会混合短信结果。</string>
+
+    <!-- Detail pages -->
+    <string name="detail_sms_title">短信详情</string>
+    <string name="detail_mail_title">邮件详情</string>
+    <string name="detail_device_title">设备详情</string>
+    <string name="detail_unavailable">正式同步未接通——暂时无法显示该内容</string>
+    <string name="detail_id_label">内容 ID：%1$s</string>
+
+    <!-- Drawer -->
+    <string name="drawer_by_openalc">by OpenALC</string>
+    <string name="drawer_devices">设备</string>
+    <string name="drawer_mail">邮件</string>
+    <string name="drawer_settings">配置</string>
+    <string name="drawer_no_devices">暂无已配对设备</string>
+    <string name="drawer_pair_device">配对新设备</string>
+    <string name="drawer_pairing_unavailable">正式设备配对未接通——请等待服务端开放后重试。</string>
+    <string name="drawer_no_accounts">暂无邮箱账号</string>
+    <string name="drawer_add_account">添加邮箱账号</string>
+    <string name="drawer_sim_labels">SIM：%1$s</string>
+    <string name="drawer_account_status">连接状态：%1$s</string>
+    <string name="drawer_footer_notice">Relay 是跨设备的个人短信与邮件管理工具。设备配对、正式同步与远程发送将在正式服务开放后逐项提供。</string>
+
+    <!-- Compose dock -->
+    <string name="compose_recipient_sms">收件人号码</string>
+    <string name="compose_recipient_mail">收件人地址</string>
+    <string name="compose_body_sms">输入短信内容</string>
+    <string name="compose_body_mail">写邮件</string>
+    <string name="compose_send">发送</string>
+    <string name="compose_send_disabled_reason">正式链路未接通，发送暂不可用</string>
+    <string name="compose_source_sms">设备／SIM</string>
+    <string name="compose_source_mail">发件账号</string>
+    <string name="compose_source_unselected">未选择</string>
+    <string name="compose_pick_source_sms">选择设备和 SIM</string>
+    <string name="compose_pick_source_mail">选择发件账号</string>
+    <string name="compose_source_unavailable">正式链路未接通——暂时没有可选的设备、SIM 或邮箱账号。正式开放后将在此选择来源，发送前会再次展示设备、SIM、收件方和正文并要求确认。</string>
+
+    <!-- Settings -->
+    <string name="settings_title">配置</string>
+    <string name="settings_appearance">外观</string>
+    <string name="theme_light">亮色</string>
+    <string name="theme_dark">暗色</string>
+    <string name="theme_system">跟随系统</string>
+    <string name="settings_services">服务</string>
+    <string name="settings_pairing">配对与撤销</string>
+    <string name="not_connected_short">未接通</string>
+    <string name="settings_mail_accounts">邮箱管理</string>
+    <string name="settings_security_sync">安全与同步状态</string>
+    <string name="settings_security_unavailable">正式服务未接通</string>
+    <string name="settings_developer">开发</string>
+    <string name="settings_synthetic_verification">合成验证（仅开发）</string>
+    <string name="settings_footer_notice">主题覆盖会保存在本机。配对、邮箱与安全状态将在正式服务开放后在此显示。</string>
+
+    <!-- Mail accounts -->
+    <string name="mail_accounts_title">邮箱账号</string>
+    <string name="mail_accounts_status">正式服务未接通——暂时无法添加邮箱账号</string>
+    <string name="mail_accounts_plan">首批支持手动填写 IMAP／SMTP 参数的通用邮箱：凭证在服务端加密保存，可替换和撤销；首次默认导入最近 90 天收件箱，Relay 新发邮件保留在本系统已发送记录中。</string>
+    <string name="mail_accounts_add">添加邮箱账号</string>
+    <string name="mail_accounts_add_disabled">正式服务开放后才能添加账号并进行连接测试。</string>
+
+    <!-- Demo cards (synthetic verification entry only) -->
+    <string name="demo_badge">演示数据</string>
+    <string name="demo_section_title">演示卡片</string>
+    <string name="demo_section_notice">以下卡片为演示数据，不代表真实会话，也不会上传；正式卡片只会出现在正式列表和详情中。</string>
+    <string name="number_unconfirmed">号码未确认</string>
+    <string name="demo_sms_device">演示设备 A</string>
+    <string name="demo_sms_sim">SIM 1</string>
+    <string name="demo_sms_number">10000000000（演示）</string>
+    <string name="demo_sms_sender">10000000001（演示）</string>
+    <string name="demo_sms_sender_alt">10000000002（演示）</string>
+    <string name="demo_sms_snippet">这是一条演示短信卡片，仅用于界面验证。</string>
+    <string name="demo_sms_snippet_alt">本机号码无法可靠读取时，卡片会显示“号码未确认”，不会推测号码。</string>
+    <string name="demo_sms_time">14:30</string>
+    <string name="demo_sms_time_alt">昨天</string>
+    <string name="demo_sms_status">收发状态：演示</string>
+    <string name="demo_mail_account">demo@example.com（演示）</string>
+    <string name="demo_mail_sender">sender@example.com（演示）</string>
+    <string name="demo_mail_subject">演示邮件主题</string>
+    <string name="demo_mail_snippet">这是一封演示邮件卡片，仅用于界面验证。</string>
+    <string name="demo_mail_time">11-06</string>
+    <string name="attachment_mark">附件</string>
+
+    <!-- Synthetic verification (development only) -->
+    <string name="synthetic_verification_title">合成验证（仅开发）</string>
+    <string name="synthetic_panel_title">本机合成验证</string>
+    <string name="synthetic_events_section">合成事件</string>
+    <string name="synthetic_events_filter_hint">按事件 ID 筛选合成事件</string>
+    <string name="synthetic_events_no_match">没有匹配的合成事件。</string>
+    <string name="synthetic_event_glyph_sms">短</string>
+    <string name="synthetic_event_glyph_injected">测</string>
+
+    <!-- PoC strings (existing functionality, kept working) -->
     <string name="inbox_title">收件箱</string>
     <string name="inbox_subtitle">跨设备消息的安静一隅。当前仅显示合成事件。</string>
     <string name="verification_badge">本机验证</string>
