@@ -23,7 +23,7 @@
 | Wave 0 | 基线验证 + 本台账 | ✅ 完成 | — |
 | Wave 1 | Web 正式 UI（SubAgent A）+ Android 正式 UI（SubAgent B） | ✅ 完成（01:50 收口） | 3 笔本地提交 |
 | Wave 2 | HarmonyOS 正式 UI（SubAgent C）+ 服务端数据基础（SubAgent D） | ✅ 完成（03:15 收口） | 2 笔本地提交 |
-| Wave 3 | 邮件适配包骨架（SubAgent E）+ 共享设计规范更新 + 全量验证 | ⏳ 待开始 | — |
+| Wave 3 | 邮件适配包骨架（SubAgent E）+ 共享设计规范更新 + 截图证据 | ✅ 完成（04:05 收口） | 2 笔本地提交 |
 | Wave 4 | 冻结新功能，交接证据终稿 | ⏳ 待开始（07:30 起） | — |
 
 ## 已完成明细
@@ -46,7 +46,18 @@
 **服务端（SubAgent D）**：`docs/architecture/RFC-0003-mail-sms-api.md`（Proposed，四资源组/短信发送状态机不变量 I1–I4/邮件意图与结果未知/连接安全/搜索语义/失败语义表/去重键）；迁移 000005–000010（mail_accounts、mail_messages、mail_attachments、sms_messages、sms_send_commands、audit_entries；全表 owner scope + device/account 绑定 + UNIQUE 去重键 + 游标索引 + AAD 域注释）；新包 `secrets/aad`（域分隔）、`randid`、`cursor`（keyset）、`audit`、`mailstore`、`smsstore`（状态机+每 owner 排队上限 10）；HTTP 最小切片 `POST/GET/DELETE /v1/mail-accounts`（凭证只写不回显），同一变更内 OpenAPI 0.2.0→0.3.0 + contract_test 同步。修复真实死锁（ListAccounts rows 遍历内嵌套查询）。`sqlite_test.go` 账本计数 4→10（跟随迁移集合的必要伴随改动）。go.mod/go.sum 零新依赖。
 验证（含独立复核）：`go test ./...` 14 包 ok；`go vet` ✓；`go build ./cmd/relay ./cmd/relay-admin` ✓；gofmt 干净；OpenAPI 16 paths 校验通过。测试覆盖：AAD 域分离固定向量、密文篡改/错钥失败、去重同键同内容/不同内容冲突、游标稳定、重启存活、RAISE(ABORT) 回滚无部分写入、状态机非法跃迁全拒、unknown 终态不重发、范围外不可见、HTTP 匿名 401/CSRF 403/凭证不回显。
 
+### Wave 3（04:05 收口）— 批次 3 脚手架 + 共享规范 + 截图证据
+
+**邮件适配包（SubAgent E）**：`server/internal/mailadapter/`（policy/imap/smtp/mime + 4 测试文件）。依赖固定：go-imap/v2 v2.0.0-beta.8、go-message v0.18.2、go-smtp v0.21.3（均 MIT，govulncheck 零命中）；go.sum 仅图闭包新增。EndpointPolicy：端口白名单（25 需显式开启）、RFC1123 主机名校验、私网/环回默认拒绝+精确端点 allowlist 钩子、拨号 Control 复检防 DNS 漂移、TLS 1.2+ 永不跳过验证。`Submit` 结果未知语义：`ErrSubmitUnknown`（句点后应答丢失，上层禁止重交）/`ErrSubmitRejected`。隔离性：cmd/httpapi 对 mailadapter 与 emersion 零引用（grep 证明）。
+验证：`go test -count=1 ./...` 25 新测试全过（进程内受控 IMAP/SMTP 端到端、双 TLS 模式、私网 12 组拒绝、真实断连注入、畸形 MIME 降级不 panic）；vet/build/gofmt 干净。环境注记：本沙箱 DNS 通配劫持，`TestPolicyUnresolvableHost` SKIP（localhost 环回拒绝路径已覆盖）。
+
+**共享设计规范**：`docs/design/RELAY-UI.zh-CN.md` 升级 v2（设计令牌双主题表、侧栏文字 logo 规格、页面导航表、Web/Android/HarmonyOS 导航实现约定、卡片字段、撰写与发送禁用语义、频道切换 250ms、合成验证边界、验收要点）；v1 全文保留为历史章节。
+
+**截图证据**（git 忽略目录 `bin/ui-evidence/2026-11-06/`）：Web 12 张（桌面 1280×900 + 移动 390×844；短信/邮件列表、搜索、设置、邮箱账号、详情不可达态、合成验证；亮+暗）——已目检：亮暗令牌正确、空态「正式同步未接通」与发送禁用原因「正式链路未接通；未配对设备」清晰。HarmonyOS 模拟器截图 10+ 张归档至同目录 `harmony/`（首页/抽屉/暗色/搜索/邮件页）。Android 无模拟器截图（Needs Verification，编译级验证）。
+
 ### Needs Verification（新增）
+- 邮件适配层：真实服务商 IMAP/SMTP 互通完全未验证（计划明令禁止连接真实邮箱，属用户授权实测）；附件 FETCH 与大小上限、断线重连/退避/有界轮询、多 AUTH 机制、更多字符集注册为适配层已知缺口。
+- govulncheck 23 条 stdlib 发现（go1.26.0 vs 1.26.1）与 x/crypto GO-2026-5932 为批次前已存在，与本轮无关。
 - HarmonyOS：系统返回手势逐级回退（CLI 未模拟）、平板视口、暗色对比度正式测量、TalkBack、ANIMATOR_DURATION_SCALE 真机生效、合成链路端到端（需本机 collector 在线）、真机安装/签名。
 - 服务端：端口/私网允许列表与证书主机名校验属批次 3 连接层（RFC 已定义未实现）；Android 设备侧领取/上报协议需真机；OpenAPI 4096 字节请求体上限对长正文场景需批次 3 复核。
 - Android：滑动手势/动画观感、键盘遮挡、TalkBack、暗色对比度——仅编译级验证，无真机/模拟器。
