@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test'
 import { readFileSync } from 'node:fs'
 
+// PoC 入口已迁至 /dev/synthetic（hash 路由）；正式导航不包含此入口。
 const evidence = JSON.parse(readFileSync(process.env.POC_CHAIN_REPORT!, 'utf8'))
 const unknownId = 'ffffffff-ffff-4fff-8fff-ffffffffffff'
 
@@ -10,7 +11,7 @@ test('reads every Kotlin fixture through real HTTP after collector restart', asy
   page.on('pageerror', error => errors.push(error.message))
   page.on('console', message => { if (['error', 'warning'].includes(message.type())) errors.push(message.text()) })
   page.on('request', request => { if (request.method() !== 'GET') writes.push(request.method()) })
-  await page.goto('/')
+  await page.goto('/#/dev/synthetic')
   await page.getByLabel('安装 ID（Installation ID）').fill(evidence.installation_id)
   await page.getByRole('button', { name: '读取 / 刷新' }).click()
   await expect(page.getByTestId('summary')).toContainText('25 / 100')
@@ -35,7 +36,7 @@ test('reads every Kotlin fixture through real HTTP after collector restart', asy
 })
 
 test('validates IDs and clears results when switching installations', async ({ page }) => {
-  await page.goto('/')
+  await page.goto('/#/dev/synthetic')
   await page.getByLabel('安装 ID（Installation ID）').fill('invalid')
   await page.getByRole('button', { name: '读取 / 刷新' }).click()
   await expect(page.getByRole('status')).toContainText('规范的小写 UUID')
@@ -50,7 +51,7 @@ test('validates IDs and clears results when switching installations', async ({ p
 })
 
 test('failed reads clear stale data and manual retry recovers', async ({ page }) => {
-  await page.goto('/')
+  await page.goto('/#/dev/synthetic')
   await page.getByLabel('安装 ID（Installation ID）').fill(evidence.installation_id)
   await page.getByRole('button', { name: '读取 / 刷新' }).click()
   await expect(page.getByTestId('event-row')).toHaveCount(25)
@@ -65,7 +66,7 @@ test('failed reads clear stale data and manual retry recovers', async ({ page })
 })
 
 test('loading prevents duplicate reads and rejects a foreign-installation response', async ({ page }) => {
-  await page.goto('/')
+  await page.goto('/#/dev/synthetic')
   await page.getByLabel('安装 ID（Installation ID）').fill(evidence.installation_id)
   let release!: () => void
   const gate = new Promise<void>(resolve => { release = resolve })

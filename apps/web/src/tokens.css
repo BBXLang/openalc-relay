@@ -1,0 +1,49 @@
+/*
+ * Relay 主题令牌（FORMAL-UI-MAIL-PLAN §2.2）。
+ * 亮色：bg #FAFAFA / surface #FFFFFF / 主字 #111111 / 次字 #838383 / 分段底 #E9E9E9 / 强调 #FFD12E
+ * 暗色：bg #111214 / surface #1D1E20 / 主字 #F4F4F5 / 次字 #A1A1AA / 分段底 #2B2C2F（强调沿用）
+ * 默认跟随系统（prefers-color-scheme），Settings 可覆盖 light/dark/system，见 src/theme.ts。
+ */
+:root,
+:root[data-theme='light'] {
+  color-scheme: light;
+  --bg: #fafafa;
+  --surface: #ffffff;
+  --text: #111111;
+  --text-2: #838383;
+  --segment: #e9e9e9;
+  --accent: #ffd12e;
+  --accent-text: #111111;
+  --border: #ececec;
+  --danger: #ab3c39;
+  --focus: #292929;
+  --scrim: rgba(0, 0, 0, 0.35);
+  --shadow: rgba(0, 0, 0, 0.09);
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --bg: #111214;
+  --surface: #1d1e20;
+  --text: #f4f4f5;
+  --text-2: #a1a1aa;
+  --segment: #2b2c2f;
+  --accent: #ffd12e;
+  --accent-text: #111111;
+  --border: #33343a;
+  --danger: #e59a97;
+  --focus: #f4f4f5;
+  --scrim: rgba(0, 0, 0, 0.55);
+  --shadow: rgba(0, 0, 0, 0.45);
+}
+
+:root {
+  --motion-duration: 250ms;
+  --font-stack: Inter, 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', system-ui, sans-serif;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --motion-duration: 0ms;
+  }
+}
