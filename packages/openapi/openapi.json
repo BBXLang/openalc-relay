@@ -2,8 +2,8 @@
   "openapi": "3.1.0",
   "info": {
     "title": "OpenALC Relay API",
-    "version": "0.5.0",
-    "description": "Implemented health, owner session, short-lived device pairing, revocation, fixed-type synthetic two-way exchange, owner mail account registration with write-only credentials, the read-only owner slices over the encrypted mail and SMS stores (inbox pages, message details, decrypt-and-match search), the owner-triggered bounded INBOX sync with UIDVALIDITY/UID anchors and duplicate/conflict counting, and the pure credential connection test. Bodies and numbers stay sealed at rest and are only decrypted for the owning session; search terms are never logged. Sync and connection tests connect only to endpoints admitted by the server's endpoint policy. No background polling, retry, sending, attachments download, or vendor push is accepted. Public access requires an HTTPS reverse proxy; local HTTP is only a loopback hop."
+    "version": "0.6.0",
+    "description": "Implemented health, owner session, short-lived device pairing, revocation, fixed-type synthetic two-way exchange, owner mail account registration with write-only credentials, the read-only owner slices over the encrypted mail and SMS stores (inbox pages, message details, decrypt-and-match search), the owner-triggered bounded INBOX sync with UIDVALIDITY/UID anchors and duplicate/conflict counting, the pure credential connection test, and the owner side of the single-send command surface (create with explicit per-command confirmation, idempotency key, queued-command ceiling and request rate limit; read state; list). Send commands honestly stay queued: the device claim and result-reporting protocol is still Proposed, no device pickup or carrier callback endpoint exists, and the server itself never sends an SMS. Bodies and numbers stay sealed at rest and are only decrypted for the owning session; command state responses, errors, logs and audit entries never carry recipients, bodies or retry keys. Sync and connection tests connect only to endpoints admitted by the server's endpoint policy. No background polling, retry, automatic resend, attachments download, or vendor push is accepted. Public access requires an HTTPS reverse proxy; local HTTP is only a loopback hop."
   },
   "servers": [
     { "url": "http://127.0.0.1:8080", "description": "Local development only" }
@@ -121,6 +121,13 @@
     "/v1/sms/search": {
       "get": { "operationId": "searchSMSMessages", "summary": "Decrypt-and-match SMS sender, recipient and body inside the owner scope and optional device filter; the query is never logged", "security": [{ "ownerCookie": [] }], "parameters": [{ "$ref": "#/components/parameters/Q" }, { "$ref": "#/components/parameters/DeviceIDQuery" }], "responses": { "200": { "description": "Matching SMS records in stable newest-first order", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/SMSMessagePage" } } } }, "400": { "$ref": "#/components/responses/Problem" }, "401": { "$ref": "#/components/responses/Problem" }, "500": { "description": "Stored ciphertext failed verification; no partial content is returned", "content": { "application/problem+json": { "schema": { "$ref": "#/components/schemas/BusinessProblem" } } } }, "503": { "$ref": "#/components/responses/Problem" } } }
     },
+    "/v1/sms/send-commands": {
+      "post": { "operationId": "createSMSSendCommand", "summary": "Enqueue one explicitly confirmed single-send command for an owned device; the command stays queued until the Proposed device protocol exists and the server never sends an SMS itself", "security": [{ "ownerCookie": [] }], "parameters": [{ "$ref": "#/components/parameters/Origin" }, { "$ref": "#/components/parameters/CSRF" }], "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/SMSSendCommandInput" } } } }, "responses": { "201": { "description": "Command queued; audited in the same transaction with command metadata only", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/SMSSendCommandCreated" } } } }, "200": { "description": "Idempotent replay: same owner idempotency key with the same device and content returns the existing command unchanged", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/SMSSendCommandCreated" } } } }, "400": { "description": "Missing or false confirm, malformed idempotency key or payload, or a query string on the create endpoint", "content": { "application/problem+json": { "schema": { "$ref": "#/components/schemas/BusinessProblem" } } } }, "401": { "$ref": "#/components/responses/Problem" }, "403": { "description": "Origin or CSRF rejected, or the device is revoked", "content": { "application/problem+json": { "schema": { "$ref": "#/components/schemas/BusinessProblem" } } } }, "404": { "description": "Device unknown or not owned by the session owner", "content": { "application/problem+json": { "schema": { "$ref": "#/components/schemas/BusinessProblem" } } } }, "409": { "description": "Same idempotency key with different device or content; the stored command is kept and never overwritten", "content": { "application/problem+json": { "schema": { "$ref": "#/components/schemas/BusinessProblem" } } } }, "415": { "$ref": "#/components/responses/Problem" }, "429": { "description": "The owner queued-command ceiling (queue_limit) or the per-owner request window (rate_limited) is exhausted", "content": { "application/problem+json": { "schema": { "$ref": "#/components/schemas/BusinessProblem" } } } }, "503": { "$ref": "#/components/responses/Problem" } } },
+      "get": { "operationId": "listSMSSendCommands", "summary": "Page through the owner's send command states, newest first, optionally filtered by device and a whitelisted status; responses never carry recipients, bodies or idempotency keys", "security": [{ "ownerCookie": [] }], "parameters": [{ "$ref": "#/components/parameters/DeviceIDQuery" }, { "$ref": "#/components/parameters/SMSSendStatus" }, { "$ref": "#/components/parameters/Cursor" }, { "$ref": "#/components/parameters/Limit" }], "responses": { "200": { "description": "Command state page; an empty next_cursor marks the end", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/SMSSendCommandPage" } } } }, "400": { "$ref": "#/components/responses/Problem" }, "401": { "$ref": "#/components/responses/Problem" }, "503": { "$ref": "#/components/responses/Problem" } } }
+    },
+    "/v1/sms/send-commands/{command_id}": {
+      "get": { "operationId": "getSMSSendCommand", "summary": "Read one send command's state inside the owner scope; commands of other owners answer 404 and content fields are never returned", "security": [{ "ownerCookie": [] }], "parameters": [{ "$ref": "#/components/parameters/CommandID" }], "responses": { "200": { "description": "Command state; resolved_at is present once the command reached a terminal state", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/SMSSendCommand" } } } }, "401": { "$ref": "#/components/responses/Problem" }, "404": { "$ref": "#/components/responses/Problem" }, "500": { "description": "Stored ciphertext failed verification; no partial content is returned", "content": { "application/problem+json": { "schema": { "$ref": "#/components/schemas/BusinessProblem" } } } }, "503": { "$ref": "#/components/responses/Problem" } } }
+    },
     "/healthz": {
       "get": {
         "operationId": "getLiveness",
@@ -181,6 +188,8 @@
       "PingID": { "name": "ping_id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } },
       "MessageID": { "name": "message_id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } },
       "SMSID": { "name": "sms_id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } },
+      "CommandID": { "name": "command_id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } },
+      "SMSSendStatus": { "name": "status", "in": "query", "required": false, "description": "Optional state machine filter; one of the RFC-0003 §3 statuses", "schema": { "type": "string", "enum": ["queued", "claimed", "system_sent", "delivery_receipt", "failed", "unknown"] } },
       "Cursor": { "name": "cursor", "in": "query", "required": false, "description": "Opaque stable keyset cursor from a previous page; empty starts a first page", "schema": { "type": "string" } },
       "Limit": { "name": "limit", "in": "query", "required": false, "description": "Page size between 1 and 100; defaults to 20", "schema": { "type": "integer", "minimum": 1, "maximum": 100, "default": 20 } },
       "Q": { "name": "q", "in": "query", "required": true, "description": "Plain search term matched case-insensitively against decrypted content; never written to any log", "schema": { "type": "string", "minLength": 1, "maxLength": 256 } },
@@ -295,6 +304,48 @@
         "type": "object", "additionalProperties": false, "required": ["messages"],
         "properties": {
           "messages": { "type": "array", "items": { "$ref": "#/components/schemas/SMSMessage" } },
+          "next_cursor": { "type": "string", "description": "Opaque keyset cursor; empty means the end" }
+        }
+      },
+      "SMSSendCommandInput": {
+        "type": "object", "additionalProperties": false,
+        "description": "One single-send request. confirm must be true: the endpoint only accepts an explicit per-command user confirmation and no unconfirmed or batched sending exists. The recipient and body are sealed at rest and never echoed in any response, log or audit entry.",
+        "required": ["device_id", "recipient", "body", "idempotency_key", "confirm"],
+        "properties": {
+          "device_id": { "type": "string", "format": "uuid" },
+          "recipient": { "type": "string", "minLength": 1, "maxLength": 64 },
+          "body": { "type": "string", "minLength": 1, "maxLength": 1600 },
+          "idempotency_key": { "type": "string", "minLength": 16, "maxLength": 128, "pattern": "^[ -~]+$", "description": "Printable ASCII retry key, unique per owner; an identical retry returns the existing command, the same key with different content is a conflict" },
+          "confirm": { "type": "boolean", "enum": [true], "description": "Must be true; anything else is rejected with missing_confirmation before any state changes" }
+        }
+      },
+      "SMSSendCommandCreated": {
+        "type": "object", "additionalProperties": false,
+        "description": "Create outcome. 201 returns the newly queued command; 200 replays an identical earlier command with idempotent_replay=true. The status on a replay is the command's current state.",
+        "required": ["command_id", "status", "created_at"],
+        "properties": {
+          "command_id": { "type": "string", "format": "uuid" },
+          "status": { "type": "string", "enum": ["queued", "claimed", "system_sent", "delivery_receipt", "failed", "unknown"] },
+          "created_at": { "type": "string", "format": "date-time" },
+          "idempotent_replay": { "type": "boolean", "enum": [true], "description": "Only present on the 200 replay of an identical earlier command" }
+        }
+      },
+      "SMSSendCommand": {
+        "type": "object", "additionalProperties": false,
+        "description": "State view of one send command. Recipient, body and idempotency key are deliberately absent: state responses never carry message content. Until the Proposed device protocol is implemented, created commands stay queued.",
+        "required": ["command_id", "device_id", "status", "created_at"],
+        "properties": {
+          "command_id": { "type": "string", "format": "uuid" },
+          "device_id": { "type": "string", "format": "uuid" },
+          "status": { "type": "string", "enum": ["queued", "claimed", "system_sent", "delivery_receipt", "failed", "unknown"] },
+          "created_at": { "type": "string", "format": "date-time" },
+          "resolved_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "SMSSendCommandPage": {
+        "type": "object", "additionalProperties": false, "required": ["commands"],
+        "properties": {
+          "commands": { "type": "array", "items": { "$ref": "#/components/schemas/SMSSendCommand" } },
           "next_cursor": { "type": "string", "description": "Opaque keyset cursor; empty means the end" }
         }
       },

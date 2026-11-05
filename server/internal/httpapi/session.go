@@ -40,6 +40,10 @@ type businessHandler struct {
 	// used by any other surface.
 	mailPolicy  mailadapter.EndpointPolicy
 	mailRootCAs *x509.CertPool
+	// sendMu guards sendWindows, the per-owner fixed-window request limit
+	// for SMS send-command creation (see sms_commands.go).
+	sendMu      sync.Mutex
+	sendWindows map[string]sendCommandWindowState
 }
 
 // NewBusinessHandler exposes only the implemented owner session endpoint.
@@ -61,7 +65,8 @@ func NewBusinessHandlerWithMailSync(checkDatabase func(context.Context) error, d
 	}
 	return &businessHandler{health: NewHandler(checkDatabase), db: db, keys: keys,
 		origin: "https://" + parsed.Host, host: parsed.Host,
-		loginSlots: make(chan struct{}, 2), mailPolicy: policy, mailRootCAs: rootCAs}, nil
+		loginSlots: make(chan struct{}, 2), mailPolicy: policy, mailRootCAs: rootCAs,
+		sendWindows: make(map[string]sendCommandWindowState)}, nil
 }
 
 func (h *businessHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -83,6 +88,11 @@ func (h *businessHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if h.serveMailbox(w, r) {
+			return
+		}
+		// The send-command surface shares the /v1/sms prefix with the read
+		// routes and must be matched first; serveSMS owns the rest.
+		if h.serveSMSCommands(w, r) {
 			return
 		}
 		if h.serveSMS(w, r) {

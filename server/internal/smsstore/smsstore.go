@@ -399,11 +399,12 @@ func (s Store) CreateCommand(ctx context.Context, ownerID string, input CommandI
 	}
 	// Duplicate idempotency key: fail closed unless device and content match.
 	var storedID, storedDevice, storedStatus string
+	var storedCreatedMs int64
 	var storedRecipient, storedBody []byte
-	err = tx.QueryRowContext(ctx, `SELECT command_id, device_id, status,
+	err = tx.QueryRowContext(ctx, `SELECT command_id, device_id, status, created_at_ms,
 		recipient_ciphertext, body_ciphertext FROM sms_send_commands
 		WHERE owner_id = ? AND idempotency_key = ?`, ownerID, input.IdempotencyKey).
-		Scan(&storedID, &storedDevice, &storedStatus, &storedRecipient, &storedBody)
+		Scan(&storedID, &storedDevice, &storedStatus, &storedCreatedMs, &storedRecipient, &storedBody)
 	if err != nil {
 		return Command{}, "", fmt.Errorf("read stored send command: %w", err)
 	}
@@ -421,6 +422,7 @@ func (s Store) CreateCommand(ctx context.Context, ownerID string, input CommandI
 	}
 	command, err := s.commandFromStored(ownerID, commandRow{
 		ID: storedID, DeviceID: storedDevice, Status: storedStatus,
+		CreatedMs: storedCreatedMs,
 		Recipient: storedRecipient, Body: storedBody,
 	}, true)
 	if err != nil {
@@ -436,6 +438,114 @@ func (s Store) GetCommand(ctx context.Context, ownerID, commandID string) (Comma
 		return Command{}, err
 	}
 	return s.commandFromStored(ownerID, row, true)
+}
+
+// ValidCommandStatus reports whether status is one of the RFC-0003 §3 state
+// machine statuses; list filters accept exactly these values.
+func ValidCommandStatus(status string) bool {
+	switch status {
+	case StatusQueued, StatusClaimed, StatusSystemSent,
+		StatusDeliveryReceipt, StatusFailed, StatusUnknown:
+		return true
+	default:
+		return false
+	}
+}
+
+// CommandListOptions bounds one command list page: optional device and status
+// filters, the opaque keyset cursor and the page size.
+type CommandListOptions struct {
+	DeviceID string
+	Status   string
+	Cursor   string
+	Limit    int
+}
+
+// CommandPage is one stable keyset page of send command state views, newest
+// first.
+type CommandPage struct {
+	Commands   []Command `json:"commands"`
+	NextCursor string    `json:"next_cursor,omitempty"`
+}
+
+// ListCommands returns one stable keyset page of the owner's send commands,
+// newest first, optionally filtered by device and status. The returned
+// commands carry state metadata only: recipient and body ciphertext is never
+// decrypted here and those fields stay empty, so list responses can never
+// leak message content.
+func (s Store) ListCommands(ctx context.Context, ownerID string, opts CommandListOptions) (CommandPage, error) {
+	if opts.Status != "" && !ValidCommandStatus(opts.Status) {
+		return CommandPage{}, ErrInvalid
+	}
+	limit := opts.Limit
+	if limit < 1 {
+		limit = defaultPageSize
+	}
+	if limit > maxPageSize {
+		limit = maxPageSize
+	}
+	atMs, id, err := cursor.Decode(opts.Cursor)
+	if err != nil {
+		return CommandPage{}, fmt.Errorf("%w: %v", ErrInvalid, err)
+	}
+	sqlQuery := strings.Builder{}
+	sqlQuery.WriteString(`SELECT command_id, device_id, status, claimed_at_ms,
+		system_sent_at_ms, resolved_at_ms, created_at_ms FROM sms_send_commands
+		WHERE owner_id = ?`)
+	args := []any{ownerID}
+	if opts.DeviceID != "" {
+		sqlQuery.WriteString(" AND device_id = ?")
+		args = append(args, opts.DeviceID)
+	}
+	if opts.Status != "" {
+		sqlQuery.WriteString(" AND status = ?")
+		args = append(args, opts.Status)
+	}
+	if id != "" {
+		sqlQuery.WriteString(" AND (created_at_ms, command_id) < (?, ?)")
+		args = append(args, atMs, id)
+	}
+	sqlQuery.WriteString(" ORDER BY created_at_ms DESC, command_id DESC LIMIT ?")
+	args = append(args, limit+1)
+	rows, err := s.DB.QueryContext(ctx, sqlQuery.String(), args...)
+	if err != nil {
+		return CommandPage{}, fmt.Errorf("list send commands: %w", err)
+	}
+	defer rows.Close()
+	scanned := make([]commandRow, 0, limit+1)
+	for rows.Next() {
+		var row commandRow
+		var createdMs int64
+		var claimedMs, sentMs, resolvedMs sql.NullInt64
+		if err := rows.Scan(&row.ID, &row.DeviceID, &row.Status, &claimedMs,
+			&sentMs, &resolvedMs, &createdMs); err != nil {
+			return CommandPage{}, fmt.Errorf("scan send command: %w", err)
+		}
+		row.OwnerID = ownerID
+		row.CreatedMs = createdMs
+		row.ClaimedMs, row.SystemSentMs, row.ResolvedMs = claimedMs, sentMs, resolvedMs
+		scanned = append(scanned, row)
+	}
+	if err := rows.Err(); err != nil {
+		return CommandPage{}, fmt.Errorf("list send commands: %w", err)
+	}
+	page := CommandPage{Commands: make([]Command, 0, limit)}
+	for i, row := range scanned {
+		if i == limit {
+			next, err := cursor.Encode(scanned[i-1].CreatedMs, scanned[i-1].ID)
+			if err != nil {
+				return CommandPage{}, err
+			}
+			page.NextCursor = next
+			break
+		}
+		command, err := s.commandFromStored(ownerID, row, false)
+		if err != nil {
+			return CommandPage{}, err
+		}
+		page.Commands = append(page.Commands, command)
+	}
+	return page, nil
 }
 
 // PendingForDevice returns queued commands for the given device, oldest first.

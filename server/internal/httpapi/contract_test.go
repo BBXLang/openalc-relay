@@ -63,6 +63,8 @@ func TestImplementedOpenAPIContract(t *testing.T) {
 		"/v1/sms/messages":                               {"get"},
 		"/v1/sms/messages/{sms_id}":                      {"get"},
 		"/v1/sms/search":                                 {"get"},
+		"/v1/sms/send-commands":                          {"get", "post"},
+		"/v1/sms/send-commands/{command_id}":             {"get"},
 	}
 	if contract.OpenAPI != "3.1.0" || len(contract.Paths) != len(expectedMethods) {
 		t.Fatal("unexpected implemented API surface")

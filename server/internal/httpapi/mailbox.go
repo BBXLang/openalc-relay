@@ -331,6 +331,7 @@ func writeSMSReadError(w http.ResponseWriter, err error) {
 func readQueryAllowed(path string) bool {
 	return path == "/v1/mail/search" || path == "/v1/sms/search" ||
 		path == "/v1/sms/messages" ||
+		path == "/v1/sms/send-commands" ||
 		strings.HasPrefix(path, "/v1/mail/messages/") ||
 		strings.HasPrefix(path, "/v1/mail/accounts/") ||
 		strings.HasPrefix(path, "/v1/sms/messages/")
