@@ -24,9 +24,16 @@
 | Wave 1 | Web 正式 UI（SubAgent A）+ Android 正式 UI（SubAgent B） | ✅ 完成（01:50 收口） | 3 笔本地提交 |
 | Wave 2 | HarmonyOS 正式 UI（SubAgent C）+ 服务端数据基础（SubAgent D） | ✅ 完成（03:15 收口） | 2 笔本地提交 |
 | Wave 3 | 邮件适配包骨架（SubAgent E）+ 共享设计规范更新 + 截图证据 | ✅ 完成（04:05 收口） | 2 笔本地提交 |
-| Wave 4 | 冻结新功能，交接证据终稿 | ⏳ 待开始（07:30 起） | — |
+| Wave 4 | 只读端点切片（提前完成）→ 冻结与交接证据终稿（07:30 起） | 🔄 进行中 | 1 笔提交 +终稿待提交 |
 
 ## 已完成明细
+
+### Wave 4 前置增量（04:30 收口）— 批次 3：owner 会话只读端点切片
+
+**HTTP 读面（SubAgent F）**：`server/internal/httpapi/mailbox.go` 6 个只读端点——`GET /v1/mail/accounts/{id}/messages`（游标分页、列表仅元数据+≤120 字符摘要）、`GET /v1/mail/messages/{id}`（text 默认；`sanitized_html` 默认只回说明字段，`?format=html` 显式 opt-in 带未净化警示）、`GET /v1/mail/search`（解密匹配主题/发件人/正文，owner+可选账号范围，q 缺失 400）、`GET /v1/sms/messages` / `{sms_id}` / `search`（同语义）。OpenAPI 0.3.0→0.4.0（+6 path/5 schema/8 parameter）与 contract_test 同变更同步。
+**安全相关改动（已由主控审查 diff）**：`session.go` 的 `RawQuery` 全局拒绝改为精确路径/紧前缀白名单豁免（仅 6 个新 GET 端点），不波及 `/v1/mail-accounts` 写面；`Cache-Control: no-store` 在豁免判定前统一设置；新增回归测试锁定既有端点仍拒绝一切 query。
+**mailstore 最小扩展**：`SearchMessages` 增游标支持与发件人匹配（旧测试调用点机械更新）。设备列表复用既有 synthetic surface（无重复实现）。
+验证（含独立复核）：`go test -count=1` httpapi 13.3s + mailstore 3.6s ok、全量 15 包 ok、vet/build/gofmt 干净、OpenAPI JSON 可解析。7 组新测试：匿名 401/跨 owner 404/游标稳定/篡改密文 500 无部分数据/format=html 显式 opt-in/搜索 scope/query 豁免回归。日志红线：httpapi 包零日志调用（grep 证明），q/正文/凭证无进日志路径。
 
 ### Wave 1（01:50 收口）— 批次 1：Web + Android 正式 UI
 
