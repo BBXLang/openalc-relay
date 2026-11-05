@@ -1,0 +1,10 @@
+{
+  "app": {
+    "bundleName": "org.openalc.relay.harmony",
+    "vendor": "openalc",
+    "versionCode": 1,
+    "versionName": "0.0.1-ui",
+    "icon": "$media:layered_image",
+    "label": "$string:app_name"
+  }
+}

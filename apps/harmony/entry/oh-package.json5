@@ -1,0 +1,9 @@
+{
+  "name": "entry",
+  "version": "1.0.0",
+  "description": "OpenALC Relay HarmonyOS entry.",
+  "main": "",
+  "author": "",
+  "license": "",
+  "dependencies": {}
+}

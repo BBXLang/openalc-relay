@@ -1,0 +1,16 @@
+{
+  "string": [
+    {
+      "name": "module_desc",
+      "value": "Relay 界面预览"
+    },
+    {
+      "name": "EntryAbility_desc",
+      "value": "Relay 收件箱界面"
+    },
+    {
+      "name": "EntryAbility_label",
+      "value": "Relay 界面预览"
+    }
+  ]
+}

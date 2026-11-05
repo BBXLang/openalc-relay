@@ -1,0 +1,32 @@
+[Unit]
+Description=OpenALC Relay bootstrap server
+After=network.target
+
+[Service]
+Type=simple
+User=openalc-relay
+Group=openalc-relay
+StateDirectory=openalc-relay
+StateDirectoryMode=0700
+WorkingDirectory=/var/lib/openalc-relay
+Environment=RELAY_HTTP_ADDR=127.0.0.1:8080
+Environment=RELAY_DATABASE_PATH=/var/lib/openalc-relay/relay.db
+Environment=RELAY_LOG_LEVEL=info
+EnvironmentFile=-/etc/openalc-relay/relay.env
+ExecStart=/usr/local/bin/openalc-relay
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=15
+UMask=0077
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+CapabilityBoundingSet=
+RestrictSUIDSGID=true
+LockPersonality=true
+
+[Install]
+WantedBy=multi-user.target

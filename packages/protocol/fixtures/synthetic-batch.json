@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "fixture": "openalc-relay-synthetic-v1",
+  "installation_id": "00000000-0000-4000-8000-000000000001",
+  "events": [
+    {
+      "event_id": "00000000-0000-4000-8000-000000000002",
+      "fixture_id": "00000000-0000-4000-8000-000000000002",
+      "source": "injected",
+      "received_at_ms": 1793577600000,
+      "subscription_id": null
+    }
+  ]
+}

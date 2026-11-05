@@ -1,0 +1,151 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "OpenALC Relay API",
+    "version": "0.1.0",
+    "description": "Implemented health endpoints and the local-owner Web session endpoint. The session endpoint is available only after local owner bootstrap and key configuration. Device pairing, event APIs, and encrypted communication-data storage are not implemented. Plain HTTP is for loopback or a trusted local proxy hop only."
+  },
+  "servers": [
+    { "url": "http://127.0.0.1:8080", "description": "Local development only" }
+  ],
+  "security": [],
+  "paths": {
+    "/v1/session": {
+      "post": {
+        "operationId": "createOwnerSession",
+        "summary": "Log in as the locally bootstrapped owner",
+        "parameters": [{ "name": "Origin", "in": "header", "required": true, "schema": { "type": "string", "format": "uri" } }],
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PasswordLogin" } } }
+        },
+        "responses": {
+          "200": { "description": "Owner session created; Secure HttpOnly cookie set", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/OwnerSession" } } } },
+          "400": { "$ref": "#/components/responses/Problem" },
+          "401": { "$ref": "#/components/responses/Problem" },
+          "403": { "$ref": "#/components/responses/Problem" },
+          "415": { "$ref": "#/components/responses/Problem" },
+          "429": { "$ref": "#/components/responses/Problem" },
+          "503": { "$ref": "#/components/responses/Problem" }
+        }
+      },
+      "get": {
+        "operationId": "getOwnerSession",
+        "summary": "Read the active owner session and CSRF token",
+        "security": [{ "ownerCookie": [] }],
+        "responses": {
+          "200": { "description": "Active owner session", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/OwnerSession" } } } },
+          "400": { "$ref": "#/components/responses/Problem" },
+          "401": { "$ref": "#/components/responses/Problem" },
+          "503": { "$ref": "#/components/responses/Problem" }
+        }
+      },
+      "delete": {
+        "operationId": "revokeOwnerSession",
+        "summary": "Revoke the active owner session",
+        "security": [{ "ownerCookie": [] }],
+        "parameters": [
+          { "name": "Origin", "in": "header", "required": true, "schema": { "type": "string", "format": "uri" } },
+          { "name": "X-CSRF-Token", "in": "header", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "204": { "description": "Session revoked" },
+          "400": { "$ref": "#/components/responses/Problem" },
+          "401": { "$ref": "#/components/responses/Problem" },
+          "403": { "$ref": "#/components/responses/Problem" },
+          "503": { "$ref": "#/components/responses/Problem" }
+        }
+      }
+    },
+    "/healthz": {
+      "get": {
+        "operationId": "getLiveness",
+        "summary": "Check process liveness independently of the database",
+        "responses": {
+          "200": {
+            "description": "The HTTP process is running",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/Healthy" } }
+            }
+          }
+        }
+      },
+      "head": {
+        "operationId": "headLiveness",
+        "summary": "Check liveness without a response body",
+        "responses": { "200": { "description": "The HTTP process is running" } }
+      }
+    },
+    "/readyz": {
+      "get": {
+        "operationId": "getReadiness",
+        "summary": "Check the migrated database connection with a bounded timeout",
+        "responses": {
+          "200": {
+            "description": "The database is available",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/Healthy" } }
+            }
+          },
+          "503": {
+            "description": "The database is unavailable; private error details are omitted",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/Unavailable" } }
+            }
+          }
+        }
+      },
+      "head": {
+        "operationId": "headReadiness",
+        "summary": "Check readiness without a response body",
+        "responses": {
+          "200": { "description": "The database is available" },
+          "503": { "description": "The database is unavailable" }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "ownerCookie": { "type": "apiKey", "in": "cookie", "name": "__Host-relay-session" }
+    },
+    "responses": {
+      "Problem": { "description": "Controlled problem response", "content": { "application/problem+json": { "schema": { "$ref": "#/components/schemas/BusinessProblem" } } } }
+    },
+    "schemas": {
+      "PasswordLogin": {
+        "type": "object", "additionalProperties": false, "required": ["password"],
+        "properties": { "password": { "type": "string", "description": "12 to 1024 UTF-8 bytes", "writeOnly": true } }
+      },
+      "OwnerSession": {
+        "type": "object", "additionalProperties": false,
+        "required": ["owner_id", "expires_at", "csrf_token"],
+        "properties": {
+          "owner_id": { "type": "string", "format": "uuid" },
+          "expires_at": { "type": "string", "format": "date-time" },
+          "csrf_token": { "type": "string" }
+        }
+      },
+      "BusinessProblem": {
+        "type": "object", "additionalProperties": false,
+        "required": ["type", "title", "status", "code"],
+        "properties": {
+          "type": { "type": "string" }, "title": { "type": "string" },
+          "status": { "type": "integer" }, "code": { "type": "string" }
+        }
+      },
+      "Healthy": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["status"],
+        "properties": { "status": { "type": "string", "const": "ok" } }
+      },
+      "Unavailable": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["status"],
+        "properties": { "status": { "type": "string", "const": "unavailable" } }
+      }
+    }
+  }
+}

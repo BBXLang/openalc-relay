@@ -1,0 +1,39 @@
+# Credentials and local configuration
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+*.keystore
+
+# Runtime data, backups, and private device evidence
+data/
+*.db
+*.db-*
+*.sqlite
+*.sqlite-*
+*.sqlite3
+*.sqlite3-*
+backups/
+docs/development/poc-results/
+
+# Build and editor output
+/MIGRATION-MANIFEST.json
+bin/
+dist/
+build/
+node_modules/
+.gradle/
+.kotlin/
+.idea/
+.vscode/
+local.properties
+*.log
+*.exe
+server/relay
+coverage.out
+.DS_Store
+Thumbs.db

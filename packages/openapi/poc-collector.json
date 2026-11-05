@@ -1,0 +1,320 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Relay synthetic-only local collector",
+    "version": "0.0.2-poc",
+    "description": "Separate synthetic-only local test harness, not the Relay business API. Literal-loopback peer and Host required. Same-origin browser GET allowed, browser POST and cross-origin reads denied. No authentication, real SMS body/phone/credentials, or public deployment."
+  },
+  "servers": [
+    {
+      "url": "http://127.0.0.1:8787",
+      "description": "Local host / adb reverse only"
+    }
+  ],
+  "security": [],
+  "paths": {
+    "/poc/v1/events": {
+      "post": {
+        "operationId": "ingestSyntheticEvents",
+        "summary": "Commit synthetic metadata before ACK; deduplicate by installation and event ID",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Batch"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Per-event durable ACK or explicit rejection",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Receipt"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed, oversized, duplicate-ID or non-synthetic batch; no writes"
+          },
+          "403": {
+            "description": "Non-loopback peer/Host, cross-site request, or any browser Origin"
+          },
+          "415": {
+            "description": "application/json required"
+          },
+          "503": {
+            "description": "Storage unavailable; no ACK. Fault injection may also drop the response after commit."
+          },
+          "405": {
+            "description": "Method unsupported; Allow: GET, POST"
+          }
+        }
+      },
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Committed installation-scoped metadata, including empty arrays",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EventPage"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Storage unavailable"
+          },
+          "403": {
+            "description": "Non-loopback peer/Host or cross-origin/cross-site browser request"
+          },
+          "405": {
+            "description": "Method unsupported; Allow: GET, POST"
+          },
+          "400": {
+            "description": "Invalid query"
+          }
+        },
+        "description": "Installation ID is a synthetic filter, not authentication. Ordered by event_id ascending. Count and page share a read transaction. New inserts before a cursor require refreshing from the first page. Unknown, duplicate or malformed query parameters are rejected. No CORS.",
+        "operationId": "listSyntheticEvents",
+        "parameters": [
+          {
+            "required": true,
+            "in": "query",
+            "name": "installation_id",
+            "schema": {
+              "$ref": "#/components/schemas/Uuid"
+            }
+          },
+          {
+            "required": false,
+            "in": "query",
+            "name": "after",
+            "schema": {
+              "$ref": "#/components/schemas/Uuid"
+            }
+          },
+          {
+            "required": false,
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "default": 25,
+              "maximum": 50,
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "summary": "Read committed metadata for one installation using UUID keyset pagination"
+      }
+    },
+    "/poc/v1/stats": {
+      "get": {
+        "operationId": "countSyntheticEvents",
+        "responses": {
+          "200": {
+            "description": "Committed synthetic event count",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "event_count"
+                  ],
+                  "properties": {
+                    "event_count": {
+                      "type": "integer",
+                      "minimum": 0
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Non-loopback peer/Host or cross-origin/cross-site browser request"
+          },
+          "503": {
+            "description": "Storage unavailable"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Uuid": {
+        "type": "string",
+        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+      },
+      "Event": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "event_id",
+          "fixture_id",
+          "source",
+          "received_at_ms"
+        ],
+        "description": "fixture_id must equal event_id; invalid event fields receive rejected ACKs and are not stored.",
+        "properties": {
+          "event_id": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "fixture_id": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "injected",
+              "sms_broadcast"
+            ]
+          },
+          "received_at_ms": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 4102444799999
+          },
+          "subscription_id": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0,
+            "maximum": 2147483647
+          }
+        }
+      },
+      "Batch": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "version",
+          "fixture",
+          "installation_id",
+          "events"
+        ],
+        "properties": {
+          "version": {
+            "type": "integer",
+            "const": 1
+          },
+          "fixture": {
+            "type": "string",
+            "const": "openalc-relay-synthetic-v1"
+          },
+          "installation_id": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "events": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 25,
+            "items": {
+              "$ref": "#/components/schemas/Event"
+            }
+          }
+        }
+      },
+      "Receipt": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "version",
+          "installation_id",
+          "acknowledgements"
+        ],
+        "properties": {
+          "version": {
+            "type": "integer",
+            "const": 1
+          },
+          "installation_id": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "acknowledgements": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 25,
+            "items": {
+              "$ref": "#/components/schemas/Acknowledgement"
+            }
+          }
+        }
+      },
+      "Acknowledgement": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "event_id",
+          "status"
+        ],
+        "description": "Only rejected includes code. Unknown, duplicate or foreign ACK IDs invalidate the entire receipt on the client.",
+        "properties": {
+          "event_id": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "persisted",
+              "duplicate",
+              "rejected"
+            ]
+          },
+          "code": {
+            "type": "string",
+            "enum": [
+              "invalid_event",
+              "event_id_conflict"
+            ]
+          }
+        }
+      },
+      "EventPage": {
+        "properties": {
+          "events": {
+            "items": {
+              "$ref": "#/components/schemas/Event"
+            },
+            "maxItems": 50,
+            "type": "array"
+          },
+          "next_after": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/Uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "installation_id": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "total": {
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "type": "object",
+        "required": [
+          "installation_id",
+          "events",
+          "total",
+          "next_after"
+        ],
+        "additionalProperties": false
+      }
+    }
+  }
+}
