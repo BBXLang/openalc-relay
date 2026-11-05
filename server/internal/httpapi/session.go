@@ -3,6 +3,7 @@ package httpapi
 import (
 	"context"
 	"crypto/subtle"
+	"crypto/x509"
 	"database/sql"
 	"encoding/json"
 	"errors"
@@ -14,6 +15,7 @@ import (
 	"time"
 
 	"github.com/OpenALC/relay/server/internal/identity"
+	"github.com/OpenALC/relay/server/internal/mailadapter"
 	"github.com/OpenALC/relay/server/internal/secrets"
 )
 
@@ -29,11 +31,29 @@ type businessHandler struct {
 	loginWindow time.Time
 	loginCount  int
 	loginSlots  chan struct{}
+	// mailPolicy restricts the IMAP endpoints the manual sync and
+	// connection-test slices may dial. The zero value is the strict
+	// production default (whitelisted ports on public hosts only); tests
+	// inject the administrator-style allowlist that admits their in-process
+	// 127.0.0.1 endpoints. mailRootCAs swaps the trusted root store for
+	// private-CA mail hosts (nil keeps the system roots). Neither field is
+	// used by any other surface.
+	mailPolicy  mailadapter.EndpointPolicy
+	mailRootCAs *x509.CertPool
 }
 
 // NewBusinessHandler exposes only the implemented owner session endpoint.
 // The owner and keyring must already be initialized by the local admin command.
 func NewBusinessHandler(checkDatabase func(context.Context) error, db *sql.DB, keys *secrets.Keyring, publicOrigin string) (http.Handler, error) {
+	return NewBusinessHandlerWithMailSync(checkDatabase, db, keys, publicOrigin, mailadapter.EndpointPolicy{}, nil)
+}
+
+// NewBusinessHandlerWithMailSync is NewBusinessHandler with an explicit
+// endpoint policy and root-store override for the manual mail sync slices.
+// Production callers use NewBusinessHandler, whose strict default denies
+// private and loopback mail targets; only a deployment that deliberately
+// passes an allowlist policy (and, for private CAs, a root store) widens it.
+func NewBusinessHandlerWithMailSync(checkDatabase func(context.Context) error, db *sql.DB, keys *secrets.Keyring, publicOrigin string, policy mailadapter.EndpointPolicy, rootCAs *x509.CertPool) (http.Handler, error) {
 	parsed, err := url.Parse(publicOrigin)
 	if err != nil || parsed.Scheme != "https" || parsed.Host == "" || parsed.User != nil ||
 		(parsed.Path != "" && parsed.Path != "/") || parsed.RawQuery != "" || parsed.Fragment != "" || keys == nil {
@@ -41,7 +61,7 @@ func NewBusinessHandler(checkDatabase func(context.Context) error, db *sql.DB, k
 	}
 	return &businessHandler{health: NewHandler(checkDatabase), db: db, keys: keys,
 		origin: "https://" + parsed.Host, host: parsed.Host,
-		loginSlots: make(chan struct{}, 2)}, nil
+		loginSlots: make(chan struct{}, 2), mailPolicy: policy, mailRootCAs: rootCAs}, nil
 }
 
 func (h *businessHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -56,6 +76,9 @@ func (h *businessHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if r.URL.Path != "/v1/session" {
+		if h.serveMailSync(w, r) {
+			return
+		}
 		if h.serveMail(w, r) {
 			return
 		}

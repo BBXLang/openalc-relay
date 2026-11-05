@@ -4,8 +4,9 @@
 //
 // This is the batch 3 mail adapter skeleton (FORMAL-UI-MAIL-PLAN §3.1). It is
 // deliberately minimal: no automatic reconnection, no background polling, no
-// business state. A future sync/submission layer is the only intended
-// consumer; neither cmd/ nor internal/httpapi may import this package.
+// business state. The sync layer (internal/mailsync) is the only protocol
+// consumer; internal/httpapi touches this package solely to hold the
+// EndpointPolicy value it hands to the sync layer, and cmd/ never imports it.
 //
 // Safety rules enforced here (RFC-0003 §4/§5):
 //

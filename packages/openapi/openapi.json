@@ -2,8 +2,8 @@
   "openapi": "3.1.0",
   "info": {
     "title": "OpenALC Relay API",
-    "version": "0.4.0",
-    "description": "Implemented health, owner session, short-lived device pairing, revocation, fixed-type synthetic two-way exchange, owner mail account registration with write-only credentials, and the read-only owner slices over the encrypted mail and SMS stores (inbox pages, message details, decrypt-and-match search). Bodies and numbers stay sealed at rest and are only decrypted for the owning session; search terms are never logged. No network connections, sending, synchronization, attachments download, or vendor push is accepted. Public access requires an HTTPS reverse proxy; local HTTP is only a loopback hop."
+    "version": "0.5.0",
+    "description": "Implemented health, owner session, short-lived device pairing, revocation, fixed-type synthetic two-way exchange, owner mail account registration with write-only credentials, the read-only owner slices over the encrypted mail and SMS stores (inbox pages, message details, decrypt-and-match search), the owner-triggered bounded INBOX sync with UIDVALIDITY/UID anchors and duplicate/conflict counting, and the pure credential connection test. Bodies and numbers stay sealed at rest and are only decrypted for the owning session; search terms are never logged. Sync and connection tests connect only to endpoints admitted by the server's endpoint policy. No background polling, retry, sending, attachments download, or vendor push is accepted. Public access requires an HTTPS reverse proxy; local HTTP is only a loopback hop."
   },
   "servers": [
     { "url": "http://127.0.0.1:8080", "description": "Local development only" }
@@ -96,6 +96,12 @@
     },
     "/v1/mail-accounts/{account_id}": {
       "delete": { "operationId": "deleteMailAccount", "summary": "Delete a mail account and cascade its encrypted data", "security": [{ "ownerCookie": [] }], "parameters": [{ "$ref": "#/components/parameters/AccountID" }, { "$ref": "#/components/parameters/Origin" }, { "$ref": "#/components/parameters/CSRF" }], "responses": { "204": { "description": "Account deleted" }, "401": { "$ref": "#/components/responses/Problem" }, "403": { "$ref": "#/components/responses/Problem" }, "404": { "$ref": "#/components/responses/Problem" }, "503": { "$ref": "#/components/responses/Problem" } } }
+    },
+    "/v1/mail-accounts/{account_id}/sync": {
+      "post": { "operationId": "syncMailAccountInbox", "summary": "Run one bounded user-triggered INBOX sync round; duplicates are deduplicated and same-key-different-content conflicts are counted, never overwritten", "security": [{ "ownerCookie": [] }], "parameters": [{ "$ref": "#/components/parameters/AccountID" }, { "$ref": "#/components/parameters/Origin" }, { "$ref": "#/components/parameters/CSRF" }], "responses": { "200": { "description": "Sync outcome; the account anchor only advances when the round committed", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/MailSyncResult" } } } }, "401": { "$ref": "#/components/responses/Problem" }, "403": { "description": "Origin or CSRF rejected, account revoked, or the IMAP endpoint denied by the server endpoint policy", "content": { "application/problem+json": { "schema": { "$ref": "#/components/schemas/BusinessProblem" } } } }, "404": { "$ref": "#/components/responses/Problem" }, "500": { "description": "Stored ciphertext failed verification; no partial content is returned", "content": { "application/problem+json": { "schema": { "$ref": "#/components/schemas/BusinessProblem" } } } }, "502": { "description": "The configured IMAP server refused the connection, rejected the stored credentials, or the fetch failed; no internal detail is returned", "content": { "application/problem+json": { "schema": { "$ref": "#/components/schemas/BusinessProblem" } } } }, "503": { "$ref": "#/components/responses/Problem" } } }
+    },
+    "/v1/mail-accounts/{account_id}/connection-test": {
+      "post": { "operationId": "testMailAccountConnection", "summary": "Probe the stored credentials against the configured IMAP endpoint; a pure test that never changes stored state", "security": [{ "ownerCookie": [] }], "parameters": [{ "$ref": "#/components/parameters/AccountID" }, { "$ref": "#/components/parameters/Origin" }, { "$ref": "#/components/parameters/CSRF" }], "responses": { "200": { "description": "The endpoint accepted the session and INBOX was selected", "content": { "application/json": { "schema": { "type": "object", "additionalProperties": false, "required": ["ok", "imap_ready"], "properties": { "ok": { "type": "boolean", "const": true }, "imap_ready": { "type": "boolean", "const": true } } } } } }, "401": { "$ref": "#/components/responses/Problem" }, "403": { "description": "Origin or CSRF rejected, account revoked, or the IMAP endpoint denied by the server endpoint policy", "content": { "application/problem+json": { "schema": { "$ref": "#/components/schemas/BusinessProblem" } } } }, "404": { "$ref": "#/components/responses/Problem" }, "500": { "description": "Stored ciphertext failed verification", "content": { "application/problem+json": { "schema": { "$ref": "#/components/schemas/BusinessProblem" } } } }, "502": { "description": "The configured IMAP server refused the connection or rejected the stored credentials; no internal detail is returned", "content": { "application/problem+json": { "schema": { "$ref": "#/components/schemas/BusinessProblem" } } } }, "503": { "$ref": "#/components/responses/Problem" } } }
     },
     "/v1/mail/accounts/{account_id}/messages": {
       "get": { "operationId": "listMailAccountMessages", "summary": "Read one stable keyset page of the account's decrypted inbox; full bodies stay on the detail endpoint", "security": [{ "ownerCookie": [] }], "parameters": [{ "$ref": "#/components/parameters/AccountID" }, { "$ref": "#/components/parameters/Cursor" }, { "$ref": "#/components/parameters/Limit" }], "responses": { "200": { "description": "Inbox page, newest first; an empty next_cursor marks the end", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/MailMessagePage" } } } }, "400": { "$ref": "#/components/responses/Problem" }, "401": { "$ref": "#/components/responses/Problem" }, "404": { "$ref": "#/components/responses/Problem" }, "503": { "$ref": "#/components/responses/Problem" } } }
@@ -190,7 +196,7 @@
     "schemas": {
       "MailAccount": {
         "type": "object", "additionalProperties": false,
-        "description": "Owner mail account metadata. The credential is write-only and never echoed; connection testing and message sync are not implemented yet.",
+        "description": "Owner mail account metadata. The credential is write-only and never echoed; connection testing and message sync are manual, owner-triggered operations bounded by the server endpoint policy.",
         "required": ["account_id", "address", "imap_host", "imap_port", "smtp_host", "smtp_port", "tls_mode", "username", "connection_state", "revoked", "created_at"],
         "properties": {
           "account_id": { "type": "string", "format": "uuid" },
@@ -208,6 +214,19 @@
         }
       },
       "Pairing": { "type": "object", "required": ["pairing_id", "expires_at"], "properties": { "pairing_id": { "type": "string", "format": "uuid" }, "expires_at": { "type": "string", "format": "date-time" }, "request": { "$ref": "#/components/schemas/PairingRequest" } } },
+      "MailSyncResult": {
+        "type": "object", "additionalProperties": false,
+        "description": "Outcome of one bounded INBOX sync round. The anchor (uid_validity plus highest_uid) only advances when the round committed; a UIDVALIDITY change restarts the bounded full pull and existing records are deduplicated, not duplicated.",
+        "required": ["uid_validity", "fetched_new", "duplicates", "conflicts", "skipped_malformed", "highest_uid"],
+        "properties": {
+          "uid_validity": { "type": "integer", "minimum": 0, "description": "IMAP UIDVALIDITY the round ran against" },
+          "fetched_new": { "type": "integer", "minimum": 0, "description": "Messages newly stored by this round" },
+          "duplicates": { "type": "integer", "minimum": 0, "description": "Fetched messages whose (account, folder, remote_message_id) key already existed with identical content" },
+          "conflicts": { "type": "integer", "minimum": 0, "description": "Fetched messages whose key exists with different content; the stored record is kept and never overwritten" },
+          "skipped_malformed": { "type": "integer", "minimum": 0, "description": "Fetched messages that could not be parsed into a usable record and were skipped" },
+          "highest_uid": { "type": "integer", "minimum": 0, "description": "The watermark persisted by this round; the next unchanged-validity sync fetches strictly above it" }
+        }
+      },
       "MailMessageSummary": {
         "type": "object", "additionalProperties": false,
         "description": "Decrypted list view of one stored mail message; the full body is only available on the detail endpoint and only a bounded preview appears here.",
