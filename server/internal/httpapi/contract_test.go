@@ -55,6 +55,12 @@ func TestImplementedOpenAPIContract(t *testing.T) {
 		"/v1/agent/synthetic-sync":                {"post"},
 		"/v1/mail-accounts":                       {"get", "post"},
 		"/v1/mail-accounts/{account_id}":          {"delete"},
+		"/v1/mail/accounts/{account_id}/messages": {"get"},
+		"/v1/mail/messages/{message_id}":          {"get"},
+		"/v1/mail/search":                         {"get"},
+		"/v1/sms/messages":                        {"get"},
+		"/v1/sms/messages/{sms_id}":               {"get"},
+		"/v1/sms/search":                          {"get"},
 	}
 	if contract.OpenAPI != "3.1.0" || len(contract.Paths) != len(expectedMethods) {
 		t.Fatal("unexpected implemented API surface")

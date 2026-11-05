@@ -171,6 +171,7 @@ type SearchOptions struct {
 	AccountID string
 	Folder    string
 	Query     string
+	Cursor    string
 	Limit     int
 }
 
@@ -628,11 +629,14 @@ func (s Store) ListMessages(ctx context.Context, ownerID string, opts ListOption
 }
 
 // SearchMessages decrypts records inside the authorized scope and matches the
-// query against subject and full body. No plaintext index is built or kept.
-func (s Store) SearchMessages(ctx context.Context, ownerID string, opts SearchOptions) ([]MessageSummary, error) {
+// query against subject, sender and full body (RFC-0003 §6). No plaintext
+// index is built or kept. The optional cursor continues a previous page at the
+// same stable keyset position as the list endpoints; the scan bound applies
+// from that position.
+func (s Store) SearchMessages(ctx context.Context, ownerID string, opts SearchOptions) (MessagePage, error) {
 	query := strings.TrimSpace(opts.Query)
 	if !freeText(query, 1, 256) {
-		return nil, ErrInvalid
+		return MessagePage{}, ErrInvalid
 	}
 	limit := opts.Limit
 	if limit < 1 {
@@ -641,32 +645,46 @@ func (s Store) SearchMessages(ctx context.Context, ownerID string, opts SearchOp
 	if limit > maxPageSize {
 		limit = maxPageSize
 	}
+	atMs, id, err := cursor.Decode(opts.Cursor)
+	if err != nil {
+		return MessagePage{}, fmt.Errorf("%w: %v", ErrInvalid, err)
+	}
 	needle := strings.ToLower(query)
 	sqlQuery := strings.Builder{}
 	sqlQuery.WriteString(messageSelect)
 	args := []any{ownerID}
-	appendScope(&sqlQuery, &args, opts.AccountID, opts.Folder, 0, "")
+	appendScope(&sqlQuery, &args, opts.AccountID, opts.Folder, atMs, id)
 	sqlQuery.WriteString(" ORDER BY received_at_ms DESC, message_id DESC LIMIT ?")
 	args = append(args, maxSearchScan)
 	rows, err := s.queryMessageRows(ctx, sqlQuery.String(), args)
 	if err != nil {
-		return nil, fmt.Errorf("scan mail search scope: %w", err)
+		return MessagePage{}, fmt.Errorf("scan mail search scope: %w", err)
 	}
-	matches := make([]MessageSummary, 0, limit)
+	page := MessagePage{Messages: make([]MessageSummary, 0, limit)}
 	for _, row := range rows {
 		message, err := s.decryptMessage(ownerID, row)
 		if err != nil {
-			return nil, err
+			return MessagePage{}, err
 		}
-		if strings.Contains(strings.ToLower(message.Subject), needle) ||
-			strings.Contains(strings.ToLower(message.Body), needle) {
-			matches = append(matches, summaryFrom(message))
-			if len(matches) == limit {
-				break
+		if !strings.Contains(strings.ToLower(message.Subject), needle) &&
+			!strings.Contains(strings.ToLower(message.Headers.From), needle) &&
+			!strings.Contains(strings.ToLower(message.Body), needle) {
+			continue
+		}
+		if len(page.Messages) == limit {
+			// One extra matching row proves more matches follow; the page
+			// stays bounded and the cursor pins the last returned match.
+			last := page.Messages[limit-1]
+			next, err := cursor.Encode(last.ReceivedAt.UnixMilli(), last.ID)
+			if err != nil {
+				return MessagePage{}, err
 			}
+			page.NextCursor = next
+			break
 		}
+		page.Messages = append(page.Messages, summaryFrom(message))
 	}
-	return matches, nil
+	return page, nil
 }
 
 const messageSelect = `SELECT message_id, account_id, folder, remote_message_id,

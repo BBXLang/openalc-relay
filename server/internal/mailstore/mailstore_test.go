@@ -441,21 +441,21 @@ func TestMailSearchScoping(t *testing.T) {
 		t.Fatal(err)
 	}
 	hits, err := f.store.SearchMessages(ctx, f.ownerID, SearchOptions{Query: "deployment window"})
-	if err != nil || len(hits) != 1 || hits[0].Subject != "quarterly report" {
+	if err != nil || len(hits.Messages) != 1 || hits.Messages[0].Subject != "quarterly report" {
 		t.Fatalf("body hit: %+v, %v", hits, err)
 	}
 	hits, err = f.store.SearchMessages(ctx, f.ownerID, SearchOptions{Query: "QUARTERLY"})
-	if err != nil || len(hits) != 1 {
+	if err != nil || len(hits.Messages) != 1 {
 		t.Fatalf("case-insensitive subject hit: %+v, %v", hits, err)
 	}
-	if misses, err := f.store.SearchMessages(ctx, f.ownerID, SearchOptions{Query: "soup"}); err != nil || len(misses) != 1 {
+	if misses, err := f.store.SearchMessages(ctx, f.ownerID, SearchOptions{Query: "soup"}); err != nil || len(misses.Messages) != 1 {
 		t.Fatalf("other account content searchable: %+v, %v", misses, err)
 	}
 	scoped, err := f.store.SearchMessages(ctx, f.ownerID, SearchOptions{AccountID: other.ID, Query: "deployment"})
-	if err != nil || len(scoped) != 0 {
+	if err != nil || len(scoped.Messages) != 0 {
 		t.Fatalf("account scope leaked into search: %+v, %v", scoped, err)
 	}
-	if leaked, err := f.store.SearchMessages(ctx, "other-owner", SearchOptions{Query: "deployment"}); err != nil || len(leaked) != 0 {
+	if leaked, err := f.store.SearchMessages(ctx, "other-owner", SearchOptions{Query: "deployment"}); err != nil || len(leaked.Messages) != 0 {
 		t.Fatalf("owner scope leaked into search: %+v, %v", leaked, err)
 	}
 	if _, err := f.store.SearchMessages(ctx, f.ownerID, SearchOptions{Query: "   "}); !errors.Is(err, ErrInvalid) {

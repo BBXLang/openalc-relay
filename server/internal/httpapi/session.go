@@ -51,12 +51,18 @@ func (h *businessHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("X-Content-Type-Options", "nosniff")
-	if r.Host != h.host || r.URL.RawQuery != "" {
+	if r.Host != h.host || (r.URL.RawQuery != "" && !readQueryAllowed(r.URL.Path)) {
 		writeBusinessProblem(w, http.StatusBadRequest, "invalid_request")
 		return
 	}
 	if r.URL.Path != "/v1/session" {
 		if h.serveMail(w, r) {
+			return
+		}
+		if h.serveMailbox(w, r) {
+			return
+		}
+		if h.serveSMS(w, r) {
 			return
 		}
 		h.serveSynthetic(w, r)

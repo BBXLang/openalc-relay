@@ -2,8 +2,8 @@
   "openapi": "3.1.0",
   "info": {
     "title": "OpenALC Relay API",
-    "version": "0.3.0",
-    "description": "Implemented health, owner session, short-lived device pairing, revocation, fixed-type synthetic two-way exchange, and owner mail account registration with write-only credentials. No SMS bodies, numbers, remote sending, vendor push, mailbox connectivity, or general communication-event API is accepted. Public access requires an HTTPS reverse proxy; local HTTP is only a loopback hop."
+    "version": "0.4.0",
+    "description": "Implemented health, owner session, short-lived device pairing, revocation, fixed-type synthetic two-way exchange, owner mail account registration with write-only credentials, and the read-only owner slices over the encrypted mail and SMS stores (inbox pages, message details, decrypt-and-match search). Bodies and numbers stay sealed at rest and are only decrypted for the owning session; search terms are never logged. No network connections, sending, synchronization, attachments download, or vendor push is accepted. Public access requires an HTTPS reverse proxy; local HTTP is only a loopback hop."
   },
   "servers": [
     { "url": "http://127.0.0.1:8080", "description": "Local development only" }
@@ -97,6 +97,24 @@
     "/v1/mail-accounts/{account_id}": {
       "delete": { "operationId": "deleteMailAccount", "summary": "Delete a mail account and cascade its encrypted data", "security": [{ "ownerCookie": [] }], "parameters": [{ "$ref": "#/components/parameters/AccountID" }, { "$ref": "#/components/parameters/Origin" }, { "$ref": "#/components/parameters/CSRF" }], "responses": { "204": { "description": "Account deleted" }, "401": { "$ref": "#/components/responses/Problem" }, "403": { "$ref": "#/components/responses/Problem" }, "404": { "$ref": "#/components/responses/Problem" }, "503": { "$ref": "#/components/responses/Problem" } } }
     },
+    "/v1/mail/accounts/{account_id}/messages": {
+      "get": { "operationId": "listMailAccountMessages", "summary": "Read one stable keyset page of the account's decrypted inbox; full bodies stay on the detail endpoint", "security": [{ "ownerCookie": [] }], "parameters": [{ "$ref": "#/components/parameters/AccountID" }, { "$ref": "#/components/parameters/Cursor" }, { "$ref": "#/components/parameters/Limit" }], "responses": { "200": { "description": "Inbox page, newest first; an empty next_cursor marks the end", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/MailMessagePage" } } } }, "400": { "$ref": "#/components/responses/Problem" }, "401": { "$ref": "#/components/responses/Problem" }, "404": { "$ref": "#/components/responses/Problem" }, "503": { "$ref": "#/components/responses/Problem" } } }
+    },
+    "/v1/mail/messages/{message_id}": {
+      "get": { "operationId": "getMailMessage", "summary": "Read one decrypted mail message; stored HTML bodies require the explicit format=html opt-in and are returned with an unsanitized warning", "security": [{ "ownerCookie": [] }], "parameters": [{ "$ref": "#/components/parameters/MessageID" }, { "$ref": "#/components/parameters/Format" }], "responses": { "200": { "description": "Decrypted message detail", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/MailMessageDetail" } } } }, "400": { "$ref": "#/components/responses/Problem" }, "401": { "$ref": "#/components/responses/Problem" }, "404": { "$ref": "#/components/responses/Problem" }, "500": { "description": "Stored ciphertext failed verification; no partial content is returned", "content": { "application/problem+json": { "schema": { "$ref": "#/components/schemas/BusinessProblem" } } } }, "503": { "$ref": "#/components/responses/Problem" } } }
+    },
+    "/v1/mail/search": {
+      "get": { "operationId": "searchMailMessages", "summary": "Decrypt-and-match mail subject, sender and body inside the owner scope and optional account filter; the query is never logged", "security": [{ "ownerCookie": [] }], "parameters": [{ "$ref": "#/components/parameters/Q" }, { "$ref": "#/components/parameters/AccountIDQuery" }, { "$ref": "#/components/parameters/Cursor" }], "responses": { "200": { "description": "Matching messages in stable newest-first order", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/MailMessagePage" } } } }, "400": { "$ref": "#/components/responses/Problem" }, "401": { "$ref": "#/components/responses/Problem" }, "500": { "description": "Stored ciphertext failed verification; no partial content is returned", "content": { "application/problem+json": { "schema": { "$ref": "#/components/schemas/BusinessProblem" } } } }, "503": { "$ref": "#/components/responses/Problem" } } }
+    },
+    "/v1/sms/messages": {
+      "get": { "operationId": "listSMSMessages", "summary": "Read one stable keyset page of the owner's decrypted SMS records, optionally filtered by device", "security": [{ "ownerCookie": [] }], "parameters": [{ "$ref": "#/components/parameters/DeviceIDQuery" }, { "$ref": "#/components/parameters/Cursor" }, { "$ref": "#/components/parameters/Limit" }], "responses": { "200": { "description": "SMS page, newest first; an empty next_cursor marks the end", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/SMSMessagePage" } } } }, "400": { "$ref": "#/components/responses/Problem" }, "401": { "$ref": "#/components/responses/Problem" }, "503": { "$ref": "#/components/responses/Problem" } } }
+    },
+    "/v1/sms/messages/{sms_id}": {
+      "get": { "operationId": "getSMSMessage", "summary": "Read one decrypted SMS record", "security": [{ "ownerCookie": [] }], "parameters": [{ "$ref": "#/components/parameters/SMSID" }], "responses": { "200": { "description": "Decrypted SMS record", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/SMSMessage" } } } }, "401": { "$ref": "#/components/responses/Problem" }, "404": { "$ref": "#/components/responses/Problem" }, "500": { "description": "Stored ciphertext failed verification; no partial content is returned", "content": { "application/problem+json": { "schema": { "$ref": "#/components/schemas/BusinessProblem" } } } }, "503": { "$ref": "#/components/responses/Problem" } } }
+    },
+    "/v1/sms/search": {
+      "get": { "operationId": "searchSMSMessages", "summary": "Decrypt-and-match SMS sender, recipient and body inside the owner scope and optional device filter; the query is never logged", "security": [{ "ownerCookie": [] }], "parameters": [{ "$ref": "#/components/parameters/Q" }, { "$ref": "#/components/parameters/DeviceIDQuery" }], "responses": { "200": { "description": "Matching SMS records in stable newest-first order", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/SMSMessagePage" } } } }, "400": { "$ref": "#/components/responses/Problem" }, "401": { "$ref": "#/components/responses/Problem" }, "500": { "description": "Stored ciphertext failed verification; no partial content is returned", "content": { "application/problem+json": { "schema": { "$ref": "#/components/schemas/BusinessProblem" } } } }, "503": { "$ref": "#/components/responses/Problem" } } }
+    },
     "/healthz": {
       "get": {
         "operationId": "getLiveness",
@@ -155,6 +173,14 @@
       "DeviceID": { "name": "device_id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } },
       "AccountID": { "name": "account_id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } },
       "PingID": { "name": "ping_id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } },
+      "MessageID": { "name": "message_id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } },
+      "SMSID": { "name": "sms_id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } },
+      "Cursor": { "name": "cursor", "in": "query", "required": false, "description": "Opaque stable keyset cursor from a previous page; empty starts a first page", "schema": { "type": "string" } },
+      "Limit": { "name": "limit", "in": "query", "required": false, "description": "Page size between 1 and 100; defaults to 20", "schema": { "type": "integer", "minimum": 1, "maximum": 100, "default": 20 } },
+      "Q": { "name": "q", "in": "query", "required": true, "description": "Plain search term matched case-insensitively against decrypted content; never written to any log", "schema": { "type": "string", "minLength": 1, "maxLength": 256 } },
+      "AccountIDQuery": { "name": "account_id", "in": "query", "required": false, "description": "Optional mail account scope", "schema": { "type": "string", "format": "uuid" } },
+      "DeviceIDQuery": { "name": "device_id", "in": "query", "required": false, "description": "Optional device scope", "schema": { "type": "string", "format": "uuid" } },
+      "Format": { "name": "format", "in": "query", "required": false, "description": "Explicit opt-in to receive the stored HTML body; text is returned by default", "schema": { "type": "string", "enum": ["html"] } },
       "Origin": { "name": "Origin", "in": "header", "required": true, "schema": { "type": "string", "format": "uri" } },
       "CSRF": { "name": "X-CSRF-Token", "in": "header", "required": true, "schema": { "type": "string" } }
     },
@@ -182,6 +208,77 @@
         }
       },
       "Pairing": { "type": "object", "required": ["pairing_id", "expires_at"], "properties": { "pairing_id": { "type": "string", "format": "uuid" }, "expires_at": { "type": "string", "format": "date-time" }, "request": { "$ref": "#/components/schemas/PairingRequest" } } },
+      "MailMessageSummary": {
+        "type": "object", "additionalProperties": false,
+        "description": "Decrypted list view of one stored mail message; the full body is only available on the detail endpoint and only a bounded preview appears here.",
+        "required": ["message_id", "account_id", "folder", "received_at", "unread", "has_attachments", "attachment_count", "subject", "from", "preview"],
+        "properties": {
+          "message_id": { "type": "string", "format": "uuid" },
+          "account_id": { "type": "string", "format": "uuid" },
+          "folder": { "type": "string" },
+          "received_at": { "type": "string", "format": "date-time" },
+          "unread": { "type": "boolean" },
+          "has_attachments": { "type": "boolean" },
+          "attachment_count": { "type": "integer", "minimum": 0 },
+          "subject": { "type": "string" },
+          "from": { "type": "string" },
+          "preview": { "type": "string", "description": "Bounded body preview of at most 120 characters" }
+        }
+      },
+      "MailMessagePage": {
+        "type": "object", "additionalProperties": false, "required": ["messages"],
+        "properties": {
+          "messages": { "type": "array", "items": { "$ref": "#/components/schemas/MailMessageSummary" } },
+          "next_cursor": { "type": "string", "description": "Opaque keyset cursor; empty means the end" }
+        }
+      },
+      "MailMessageDetail": {
+        "type": "object", "additionalProperties": false,
+        "description": "Decrypted mail message. Text bodies are returned as body_text; a stored HTML body is only returned on an explicit format=html request, exactly as stored, and always carries html_notice because the dedicated sanitizeHtml pass is not implemented yet.",
+        "required": ["message_id", "account_id", "folder", "remote_message_id", "received_at", "size_bytes", "unread", "has_attachments", "attachment_count", "subject", "from", "to", "body_format"],
+        "properties": {
+          "message_id": { "type": "string", "format": "uuid" },
+          "account_id": { "type": "string", "format": "uuid" },
+          "folder": { "type": "string" },
+          "remote_message_id": { "type": "string" },
+          "received_at": { "type": "string", "format": "date-time" },
+          "size_bytes": { "type": "integer", "minimum": 0 },
+          "unread": { "type": "boolean" },
+          "has_attachments": { "type": "boolean" },
+          "attachment_count": { "type": "integer", "minimum": 0 },
+          "subject": { "type": "string" },
+          "from": { "type": "string" },
+          "to": { "type": "array", "items": { "type": "string" } },
+          "cc": { "type": "array", "items": { "type": "string" } },
+          "body_format": { "type": "string", "enum": ["text_plain", "sanitized_html"] },
+          "body_text": { "type": "string", "description": "Plain-text body; present for text_plain messages" },
+          "body_html": { "type": "string", "description": "Stored HTML body, returned only on format=html; not additionally sanitized at this layer" },
+          "html_notice": { "type": "string", "description": "Sanitization status note for stored HTML bodies" }
+        }
+      },
+      "SMSMessage": {
+        "type": "object", "additionalProperties": false,
+        "description": "Decrypted SMS record; sender, recipient and body are sealed at rest and only decrypted for the owning session.",
+        "required": ["sms_id", "device_id", "direction", "sender", "recipient", "body", "device_at", "received_at", "created_at"],
+        "properties": {
+          "sms_id": { "type": "string", "format": "uuid" },
+          "device_id": { "type": "string", "format": "uuid" },
+          "direction": { "type": "string", "enum": ["inbound", "outbound"] },
+          "sender": { "type": "string" },
+          "recipient": { "type": "string" },
+          "body": { "type": "string" },
+          "device_at": { "type": "string", "format": "date-time" },
+          "received_at": { "type": "string", "format": "date-time" },
+          "created_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "SMSMessagePage": {
+        "type": "object", "additionalProperties": false, "required": ["messages"],
+        "properties": {
+          "messages": { "type": "array", "items": { "$ref": "#/components/schemas/SMSMessage" } },
+          "next_cursor": { "type": "string", "description": "Opaque keyset cursor; empty means the end" }
+        }
+      },
       "PairingRequest": { "type": "object", "required": ["request_id", "device_label", "comparison_code", "status"], "properties": { "request_id": { "type": "string", "format": "uuid" }, "device_label": { "type": "string" }, "comparison_code": { "type": "string" }, "status": { "type": "string", "enum": ["pending", "approved", "exchanged"] }, "claim_token": { "type": "string", "writeOnly": true } } },
       "Device": { "type": "object", "required": ["device_id", "device_label", "revoked"], "properties": { "device_id": { "type": "string", "format": "uuid" }, "device_label": { "type": "string" }, "revoked": { "type": "boolean" }, "device_token": { "type": "string", "writeOnly": true } } },
       "SyntheticEvent": { "type": "object", "required": ["device_id", "client_event_id", "received_at"], "properties": { "device_id": { "type": "string", "format": "uuid" }, "client_event_id": { "type": "string", "format": "uuid" }, "received_at": { "type": "string", "format": "date-time" } } },
