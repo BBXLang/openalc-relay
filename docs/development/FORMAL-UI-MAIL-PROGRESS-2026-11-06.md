@@ -28,6 +28,12 @@
 
 ## 已完成明细
 
+### Wave 5（04:50 收口）— 批次 3 增量：邮件收件箱增量同步 + 连接测试切片
+
+**同步逻辑（SubAgent G）**：`server/internal/mailsync/`——`SyncInbox` 打通 mailadapter→mailstore：锚点规则（NULL/UIDVALIDITY 变更→有界全量重拉 ≤200 封；有效锚点→严格水位+1）；锚点仅在导入事务提交后推进（skipped 也计入水位，防毒消息每轮重拉/死锁）；FetchedNew/Duplicates/Conflicts/SkippedMalformed 诚实计数；哨兵 ErrConnect/ErrAuth/ErrFetch/ErrPolicy 分级。迁移 `000011_mail_sync_anchor.sql`（mail_accounts 增可空 sync_uidvalidity/sync_highest_uid，向前迁移）。mailstore 新增 `OpenSyncState`（revoked→ErrDenied）/`ImportMessages`/`SetSyncAnchor`（锚点+连接状态+最近成功时间同事务含审计）。
+**HTTP**：`POST /v1/mail-accounts/{id}/sync`（owner 会话+Origin+CSRF；problem+json 分类 403/502/503 无内部细节）、`POST /v1/mail-accounts/{id}/connection-test`（纯测试不落存储）；OpenAPI 0.4.0→0.5.0 + 契约测试同变更。`NewBusinessHandlerWithMailSync` 包装（生产默认严格策略：公网+白名单端口，`cmd/relay` 零改动）。
+验证（含独立复核 `-count=1`）：mailsync 6.8s / httpapi 15.5s / mailadapter 0.18s ok；全量 **16 包** ok；vet/build/gofmt/`go mod verify` 干净。11 个 mailsync 测试：端到端 5 封解密入库+锚点、增量 0/2、UIDVALIDITY 重建不重复入库、冲突不覆盖、malformed/超大正文跳过不死锁、ErrAuth、策略拒绝先于拨号、connection-test 两态、HTTP 匿名 401/CSRF 403/跨 owner 404/全链路 sync→读端点可见。
+
 ### Wave 4 前置增量（04:30 收口）— 批次 3：owner 会话只读端点切片
 
 **HTTP 读面（SubAgent F）**：`server/internal/httpapi/mailbox.go` 6 个只读端点——`GET /v1/mail/accounts/{id}/messages`（游标分页、列表仅元数据+≤120 字符摘要）、`GET /v1/mail/messages/{id}`（text 默认；`sanitized_html` 默认只回说明字段，`?format=html` 显式 opt-in 带未净化警示）、`GET /v1/mail/search`（解密匹配主题/发件人/正文，owner+可选账号范围，q 缺失 400）、`GET /v1/sms/messages` / `{sms_id}` / `search`（同语义）。OpenAPI 0.3.0→0.4.0（+6 path/5 schema/8 parameter）与 contract_test 同变更同步。
@@ -73,7 +79,15 @@
 
 ## 阻塞项登记
 
-（暂无；登记格式：事项 / 原因 / 处置）
+| 事项 | 原因 | 处置 |
+| --- | --- | --- |
+| 真实邮件收发实测（计划 §5 邮件矩阵） | 无用户提供的真实邮箱账号/授权；计划明文不授权真实发送 | 跳过；适配层仅进程内受控端点验证；标 `Needs Verification` |
+| 真实短信链路（Android 正式 Agent、两台小米实测） | 设备不在手边；计划不授权真实短信 | 跳过；存储层状态机与 RFC 已就绪；标 `Needs Verification` |
+| Android 模拟器/真机 UI 过夜验收 | 未运行模拟器（时间与稳定性权衡） | 编译级 + lint + jvmTest 验证；UI 观感/手势/无障碍标 `Needs Verification` |
+| HarmonyOS 真机安装与签名 | 无真机；构建仅 unsigned HAP | 模拟器目视验证已做；真机项标 `Needs Verification` |
+| Linux race 测试 | 本机 Windows，`CGO_ENABLED=0`（`-race requires cgo`） | 依 AGENTS.md 如实注明，由 CI Linux race 兜底 |
+| 沙箱 DNS 通配劫持（`.invalid` 可解析） | 环境事实 | `TestPolicyUnresolvableHost` SKIP；环回拒绝路径另有测试覆盖 |
+| Playwright 默认端口 4173 被占 | 本机其他服务（lite-code · UI Demo） | 换 4183/17877，非代码问题 |
 
 ## Needs Verification 清单
 
