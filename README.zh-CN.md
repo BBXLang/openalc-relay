@@ -4,11 +4,11 @@
 
 [English README](README.md) · [架构 RFC](docs/architecture/RFC-0001-system-architecture.md) · [PoC 计划](docs/development/POC-PLAN.md)
 
-[服务端与 Web 管理面板首版计划](docs/architecture/RFC-0002-server-mvp.md)明确身份、配对、加密事件同步、管理页面、部署与持续实测的实施顺序。当前已实现本地管理员初始化和 Web 会话接口，其余业务接口仍是提案。实施细节见[服务端阶段记录](docs/development/SERVER-IMPLEMENTATION-2026-11-05.md)。
+[服务端与 Web 管理面板首版计划](docs/architecture/RFC-0002-server-mvp.md)明确身份、配对、加密事件同步、管理页面、部署与持续实测的实施顺序。当前已实现本地管理员初始化、Web 会话、设备配对/撤销及固定合成元数据双向交换；加密通信事件和 Web 管理面板仍是提案。实施细节见[服务端阶段记录](docs/development/SERVER-IMPLEMENTATION-2026-11-05.md)。
 
 换电脑请先看[迁移清单与新 Codex 提示词](docs/development/MIGRATION.zh-CN.md)和[接手状态](docs/development/CODEX-HANDOFF.md)。迁移包包含尚未提交的源码及文件校验清单，不包含凭证和缓存。
 
-当前包含 Go 基础骨架、一次性本地管理员初始化与 Web 会话接口、Android 合成短信接收/Room 持久化/WorkManager 补传 PoC、本机 Web 验证页与三端收件箱界面首轮。PoC 只处理固定 fixture 的元数据，不保存或上传原始正文和号码，使用独立本机测试接收器。HarmonyOS ArkUI Stage 工程已在手机和平板模拟器构建运行，尚无业务数据接入。设备配对、加密业务事件存储、正式短信收发、未接来电与厂商推送尚未实现，不能接入真实通信数据或作为正式产品部署。
+当前包含 Go 基础骨架、一次性本地管理员初始化与 Web 会话接口、Android 合成短信接收/Room 持久化/WorkManager 补传 PoC、本机 Web 验证页与三端收件箱界面首轮。PoC 只处理固定 fixture 的元数据，不保存或上传原始正文和号码，使用独立本机测试接收器。HarmonyOS ArkUI Stage 工程已在手机和平板模拟器完成与本机服务端的合成 ping、回执、事件上传和撤销验证，见[双向验证记录](docs/development/HARMONY-EXCHANGE-2026-11-05.md)。加密业务事件存储、正式短信收发、未接来电与厂商推送尚未实现，不能接入真实通信数据或作为正式产品部署。
 
 使用 Go 1.26+，在 `server/` 下运行：
 

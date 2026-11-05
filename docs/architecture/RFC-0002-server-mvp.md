@@ -4,6 +4,8 @@
 - 状态：**Proposed**；实施进度另见[服务端阶段记录](../development/SERVER-IMPLEMENTATION-2026-11-05.md)，不能把提案当作已实现 API 或通过的测试
 - 依据：[系统架构 RFC](RFC-0001-system-architecture.md)、[Web 优先决策](../decisions/0003-web-first.md)、[小米合成同步实测](../development/DEVICE-SYNC-2026-11-05.md)
 
+下文“当前起点”和“当前事实契约”保留提案撰写时的基线。后续已实现配对、设备凭证与固定合成元数据双向接口，实际范围以[实施记录](../development/SERVER-IMPLEMENTATION-2026-11-05.md)及 [OpenAPI](../../packages/openapi/openapi.json) 为准；加密通信事件和管理面板仍待实施。
+
 ## 1. 当前起点与首版目标
 
 `server/cmd/relay` 当前只提供 `/healthz`、`/readyz` 和 SQLite 迁移账本。

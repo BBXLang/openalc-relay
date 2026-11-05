@@ -51,12 +51,12 @@ func (h *businessHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("X-Content-Type-Options", "nosniff")
-	if r.URL.Path != "/v1/session" {
-		writeProblem(w, r, http.StatusNotFound)
-		return
-	}
 	if r.Host != h.host || r.URL.RawQuery != "" {
 		writeBusinessProblem(w, http.StatusBadRequest, "invalid_request")
+		return
+	}
+	if r.URL.Path != "/v1/session" {
+		h.serveSynthetic(w, r)
 		return
 	}
 	switch r.Method {

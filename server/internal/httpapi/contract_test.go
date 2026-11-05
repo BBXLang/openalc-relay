@@ -41,17 +41,36 @@ func TestImplementedOpenAPIContract(t *testing.T) {
 	if err := json.Unmarshal(data, &contract); err != nil {
 		t.Fatal(err)
 	}
-	if contract.OpenAPI != "3.1.0" || len(contract.Paths) != 3 {
+	expectedMethods := map[string][]string{
+		"/healthz": {"get", "head"}, "/readyz": {"get", "head"},
+		"/v1/session":  {"get", "post", "delete"},
+		"/v1/pairings": {"post"}, "/v1/pairings/{pairing_id}": {"get"},
+		"/v1/pairings/{pairing_id}/requests": {"post"},
+		"/v1/pairings/{pairing_id}/approve":  {"post"},
+		"/v1/pairings/{pairing_id}/exchange": {"post"},
+		"/v1/devices":                        {"get"}, "/v1/devices/{device_id}/revoke": {"post"},
+		"/v1/devices/{device_id}/synthetic-pings": {"post"},
+		"/v1/synthetic-events":                    {"get"},
+		"/v1/synthetic-pings/{ping_id}":           {"get"},
+		"/v1/agent/synthetic-sync":                {"post"},
+	}
+	if contract.OpenAPI != "3.1.0" || len(contract.Paths) != len(expectedMethods) {
 		t.Fatal("unexpected implemented API surface")
 	}
-	methods := contract.Paths["/v1/session"]
-	if len(methods) != 3 || methods["get"].Responses == nil ||
-		methods["post"].Responses == nil || methods["delete"].Responses == nil {
-		t.Fatal("owner session methods missing from contract")
+	for path, methods := range expectedMethods {
+		actual, exists := contract.Paths[path]
+		if !exists || len(actual) != len(methods) {
+			t.Fatalf("contract methods missing for %s", path)
+		}
+		for _, method := range methods {
+			if actual[method].Responses == nil {
+				t.Fatalf("contract response missing for %s %s", method, path)
+			}
+		}
 	}
 	for path, methods := range contract.Paths {
-		if path == "/v1/session" {
-			continue // Session outcomes are exercised with a real owner in session_test.go.
+		if path != "/healthz" && path != "/readyz" {
+			continue // Business route outcomes are exercised with a real owner and device.
 		}
 		for method, operation := range methods {
 			for code, response := range operation.Responses {

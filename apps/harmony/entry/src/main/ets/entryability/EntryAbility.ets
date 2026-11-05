@@ -21,6 +21,10 @@ const DOMAIN = 0x0000;
 
 export default class EntryAbility extends UIAbility {
   onCreate(want: Want, launchParam: AbilityConstant.LaunchParam): void {
+    const invitation = want.parameters?.['relay_pairing_id']
+    if (typeof invitation === 'string' && /^[0-9a-fA-F-]{36}$/.test(invitation)) {
+      AppStorage.setOrCreate<string>('relay_invitation_id', invitation)
+    }
     try {
       this.context.getApplicationContext().setColorMode(ConfigurationConstant.ColorMode.COLOR_MODE_NOT_SET);
     } catch (err) {

@@ -8,6 +8,24 @@ The owner selected the MIT license and authorized publication of the repository
 on 2026-11-05. Earlier statements below about an unselected license or no Git
 remote describe historical states.
 
+## Current synthetic server and HarmonyOS exchange — 2026-11-05
+
+The local Go service now implements one-time owner-approved device pairing,
+hashed device credentials, revocation, owner-scoped synthetic pings and
+idempotent client synthetic events. The ArkUI Stage client uses `hdc rport` to
+exchange these fixed metadata records with the local server. Phone and tablet
+HarmonyOS 7/API 26 emulators both passed pairing, server ping, explicit ACK,
+client event upload, committed ACK and revocation checks. See
+[`HARMONY-EXCHANGE-2026-11-05.md`](HARMONY-EXCHANGE-2026-11-05.md). This is an
+emulator-only result. Android real-device regression is deferred to the next
+day per owner instruction. Encrypted real communication events, production
+transport, Web management panel, Push Kit and HarmonyOS physical-device behavior
+remain **Needs Verification** or unimplemented as noted in the exchange record.
+
+The following sections preserve their original point-in-time wording. In
+particular, statements that the HarmonyOS app has no service connection or
+that pairing is pending predate the current synthetic exchange.
+
 ## Proposed server and Web management MVP — 2026-11-05
 
 The owner requested a concrete server plan after the Android/Web UI and synthetic

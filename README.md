@@ -2,14 +2,16 @@
 
 Self-hosted communication management for your own Android phones and SIM cards,
 with a Web client prioritized for mobile and desktop browsers. The owner
-resumed Android, Web, and HarmonyOS UI work on 2026-11-05; HarmonyOS business
-integration and Push Kit remain deferred.
+resumed Android, Web, and HarmonyOS UI work on 2026-11-05. HarmonyOS emulator
+synthetic exchange is available; real communication and Push Kit remain deferred.
 
 [简体中文](README.zh-CN.md) · [Architecture RFC](docs/architecture/RFC-0001-system-architecture.md) · [PoC plan](docs/development/POC-PLAN.md)
 
 The [server and Web MVP plan](docs/architecture/RFC-0002-server-mvp.md) defines
 the next security, sync, management, deployment and continuous-test gates. It is
-a staged plan; only the owner bootstrap and session slice is implemented so far.
+a staged plan. Owner bootstrap, Web sessions, device pairing and fixed synthetic
+two-way exchange are implemented. Encrypted communication events and the Web
+management panel remain future work.
 
 Moving to another computer: [migration checklist](docs/development/MIGRATION.zh-CN.md)
 and [Codex handoff](docs/development/CODEX-HANDOFF.md). The export script preserves
@@ -17,13 +19,14 @@ uncommitted source, includes a per-file integrity manifest and excludes credenti
 
 **Status: architecture and feasibility stage.** The Go server contains health
 checks, SQLite migrations, structured logs and graceful shutdown. Local owner
-bootstrap and an authenticated Web session endpoint are now implemented, but
-device pairing and business event APIs are not. The server does not receive or
+bootstrap, authenticated Web sessions, pairing, revocation and synthetic
+device metadata exchange are implemented. The server does not receive or
 send SMS, encrypt stored communication payloads, or integrate push.
 An Android debug PoC now captures only synthetic fixture metadata with Room and
 WorkManager; its separate local collector is described below. No production
 mobile application or business UI is implemented. Mobile-first Android, Web and
-HarmonyOS inbox shells are available, with synthetic data only on Android/Web.
+HarmonyOS inbox shells are available. HarmonyOS also connects to the local
+server for synthetic ping and event exchange on emulators.
 The [HarmonyOS Stage project](apps/harmony/README.md) builds and launches on
 phone and tablet emulators; physical HarmonyOS behavior is unverified.
 Do not connect real communication
@@ -58,8 +61,8 @@ two button-created synthetic events from the phone through the local collector
 to mobile and desktop browser views, including recovery after a lost ACK.
 
 The [shared UI design](docs/design/RELAY-UI.zh-CN.md) follows the owner's mobile
-reference screenshot. The [HarmonyOS emulator record](docs/development/HARMONY-UI-2026-11-05.md)
-separates build and emulator results from physical-device validation.
+reference screenshot. The [HarmonyOS exchange record](docs/development/HARMONY-EXCHANGE-2026-11-05.md)
+separates two-way emulator results from physical-device validation.
 
 ## Run the bootstrap
 
@@ -83,7 +86,8 @@ Both return `{"status":"ok"}` when ready. `/healthz` checks process liveness;
 `/readyz` checks database connectivity and returns 503 without private error
 details when unavailable. Before owner bootstrap, unknown paths return 404.
 After bootstrap and secure configuration, `/v1/session` supports owner login,
-session lookup and logout. The implemented routes are documented in
+session lookup and logout. Pairing, device management and synthetic exchange
+routes are also available. The implemented routes are documented in
 [OpenAPI](packages/openapi/openapi.json).
 
 The binary reads process environment variables; it **does not auto-load `.env`**.
@@ -99,7 +103,8 @@ The binary reads process environment variables; it **does not auto-load `.env`**
 
 Startup creates the data directory, opens SQLite with WAL/foreign keys, and
 transactionally applies embedded migrations. The schema currently includes the
-migration ledger, singleton owner and revocable Web sessions. The server rejects
+migration ledger, singleton owner, revocable Web sessions, paired devices and
+synthetic metadata. The server rejects
 changed migration checksums and unknown history. Only one process may own a
 database. After owner bootstrap, the HTTP listener must remain on loopback
 behind a correctly configured HTTPS proxy. See the
@@ -129,7 +134,7 @@ payload storage, or backups on your behalf.
 ```text
 apps/android/          Debug synthetic PoC and JVM-testable Room queue
 apps/web/              Minimal Vue/TypeScript synthetic verification page
-apps/harmony/          ArkUI Stage UI project; no business connection
+apps/harmony/          ArkUI Stage client for local synthetic exchange
 server/                Go module, owner session, storage, embedded migrations
 packages/openapi/      Implemented OpenAPI 3.1 contract
 packages/protocol/     Proposed reliability invariants
