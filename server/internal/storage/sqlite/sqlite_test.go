@@ -47,7 +47,7 @@ func TestOpenAndReopen(t *testing.T) {
 			t.Fatal(err)
 		}
 		var count int
-		if err := db.QueryRow("SELECT count(*) FROM schema_migrations").Scan(&count); err != nil || count != 4 {
+		if err := db.QueryRow("SELECT count(*) FROM schema_migrations").Scan(&count); err != nil || count != 10 {
 			t.Fatalf("migration ledger: count=%d err=%v", count, err)
 		}
 		for pragma, expected := range map[string]string{"journal_mode": "wal", "foreign_keys": "1", "synchronous": "2", "busy_timeout": "5000"} {
@@ -73,7 +73,7 @@ func TestMigrationFailureRollsBack(t *testing.T) {
 	if err := db.QueryRow("SELECT count(*) FROM sqlite_schema WHERE name = 'transient'").Scan(&count); err != nil || count != 0 {
 		t.Fatalf("DDL was not rolled back: count=%d err=%v", count, err)
 	}
-	if err := db.QueryRow("SELECT count(*) FROM schema_migrations").Scan(&count); err != nil || count != 4 {
+	if err := db.QueryRow("SELECT count(*) FROM schema_migrations").Scan(&count); err != nil || count != 10 {
 		t.Fatalf("failed migration was recorded: count=%d err=%v", count, err)
 	}
 }

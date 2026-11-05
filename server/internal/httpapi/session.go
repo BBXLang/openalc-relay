@@ -56,6 +56,9 @@ func (h *businessHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if r.URL.Path != "/v1/session" {
+		if h.serveMail(w, r) {
+			return
+		}
 		h.serveSynthetic(w, r)
 		return
 	}
