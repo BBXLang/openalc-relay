@@ -85,8 +85,8 @@ struct Index {
             }
           })
         }
-        .width('78%')
-        .constraintSize({ maxWidth: 320 })
+        .width('56%')
+        .constraintSize({ minWidth: 220, maxWidth: 300 })
         .height('100%')
         .transition(TransitionEffect.translate({ x: -360 })
           .animation({ duration: 250, curve: Curve.EaseOut }))

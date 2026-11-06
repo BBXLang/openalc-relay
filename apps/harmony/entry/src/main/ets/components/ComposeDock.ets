@@ -34,7 +34,9 @@ export struct ComposeDock {
 
   @Builder
   sourceButton() {
-    Row({ space: 8 }) {
+    // Outlined chip (user feedback 2026-11-06): icon + two-line label with a light border,
+    // replacing the bare circle + floating text pair.
+    Row({ space: 6 }) {
       Column() {
         if (this.channel === RelayNav.CHANNEL_SMS) {
           DeviceSimGlyph()
@@ -42,36 +44,34 @@ export struct ComposeDock {
           EnvelopeGlyph()
         }
       }
-      .width(40)
-      .height(40)
-      .borderRadius(20)
-      .backgroundColor($r('app.color.relay_segment'))
-      .justifyContent(FlexAlign.Center)
-      .alignItems(HorizontalAlign.Center)
-      .onClick(() => {
-        if (this.channel === RelayNav.CHANNEL_MAIL) {
-          this.pathStack.pushPathByName(RelayNav.PAGE_MAIL_ACCOUNTS, '')
-        }
-      })
-      .accessibilityText(this.channel === RelayNav.CHANNEL_SMS
-        ? $r('app.string.compose_source_sms') : $r('app.string.compose_source_mail'))
-      .accessibilityDescription($r('app.string.compose_source_unavailable'))
+      .width(18)
+      .height(18)
 
-      Column({ space: 2 }) {
+      Column({ space: 1 }) {
         Text(this.channel === RelayNav.CHANNEL_SMS
           ? $r('app.string.compose_source_sms') : $r('app.string.compose_source_mail'))
           .fontSize(9)
           .fontColor($r('app.color.relay_muted'))
           .maxLines(1)
         Text($r('app.string.compose_source_unselected'))
-          .fontSize(10)
+          .fontSize(11)
           .fontColor($r('app.color.relay_ink'))
           .maxLines(1)
       }
       .alignItems(HorizontalAlign.Start)
-      .width(70)
+      .constraintSize({ minWidth: 64 })
     }
     .alignItems(VerticalAlign.Center)
+    .padding({ left: 10, right: 10, top: 5, bottom: 5 })
+    .border({ width: 1, color: $r('app.color.relay_border'), radius: 14 })
+    .onClick(() => {
+      if (this.channel === RelayNav.CHANNEL_MAIL) {
+        this.pathStack.pushPathByName(RelayNav.PAGE_MAIL_ACCOUNTS, '')
+      }
+    })
+    .accessibilityText(this.channel === RelayNav.CHANNEL_SMS
+      ? $r('app.string.compose_source_sms') : $r('app.string.compose_source_mail'))
+    .accessibilityDescription($r('app.string.compose_source_unavailable'))
   }
 
   @Builder
@@ -113,6 +113,12 @@ export struct ComposeDock {
             this.saveDraft(RelayNav.CHANNEL_MAIL, 'recipient', value)
           }
         })
+
+      // Light divider between the recipient row and the body row (user feedback 2026-11-06).
+      Divider()
+        .color($r('app.color.relay_segment'))
+        .strokeWidth(1)
+        .width('100%')
 
       Row({ space: 8 }) {
         this.sourceButton()

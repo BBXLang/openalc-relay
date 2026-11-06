@@ -26,8 +26,10 @@ export struct ChannelPager {
     this.reduced = RelayStore.isReducedAnimation(context)
   }
 
-  private settledX(): string {
-    return this.channel === RelayNav.CHANNEL_MAIL ? '-50%' : '0%'
+  // Number in vp (not '50%') so the drag→settle transition never mixes units, which would break
+  // animation continuity and make the released swipe jump back first (user feedback 2026-11-06).
+  private settledX(): number {
+    return this.channel === RelayNav.CHANNEL_MAIL ? -this.viewportWidth : 0
   }
 
   private baseX(): number {
