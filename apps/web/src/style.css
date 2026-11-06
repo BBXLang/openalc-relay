@@ -271,6 +271,9 @@ button:focus-visible, input:focus-visible, a:focus-visible { outline: 3px solid 
   display: flex;
   align-items: center;
   gap: 8px;
+  /* Light divider between the recipient row and the body row (user feedback 2026-11-06). */
+  border-top: 1px solid var(--segment);
+  padding-top: 8px;
 }
 .compose-side {
   max-width: 46%;
@@ -278,9 +281,9 @@ button:focus-visible, input:focus-visible, a:focus-visible { outline: 3px solid 
   display: flex;
   align-items: center;
   padding: 0 12px;
-  border: 0;
+  border: 1px solid var(--segment);
   border-radius: 23px;
-  background: var(--segment);
+  background: transparent;
   color: var(--text);
 }
 .compose-side-text {
@@ -328,7 +331,8 @@ button:focus-visible, input:focus-visible, a:focus-visible { outline: 3px solid 
 .sidebar-host { position: fixed; z-index: 11; inset: 0; pointer-events: none; }
 .sidebar {
   pointer-events: auto;
-  width: min(330px, 86vw);
+  /* ~56% of a phone viewport, floored so controls stay usable, capped for desktop (user feedback). */
+  width: clamp(220px, 56vw, 300px);
   min-height: 100%;
   display: flex;
   flex-direction: column;
