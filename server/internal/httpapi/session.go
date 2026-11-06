@@ -9,6 +9,7 @@ import (
 	"errors"
 	"io"
 	"mime"
+	"net"
 	"net/http"
 	"net/url"
 	"sync"
@@ -57,16 +58,39 @@ func NewBusinessHandler(checkDatabase func(context.Context) error, db *sql.DB, k
 // Production callers use NewBusinessHandler, whose strict default denies
 // private and loopback mail targets; only a deployment that deliberately
 // passes an allowlist policy (and, for private CAs, a root store) widens it.
+//
+// The public origin must be HTTPS, with one exception: a plain-HTTP origin on
+// a loopback IP literal (for example http://127.0.0.1:18080) is accepted for
+// the local serving topology where relay itself hosts the web application on
+// a loopback-only listener (RELAY_WEB_DIR). Browsers treat loopback origins
+// as trustworthy and such a listener can never be reached off-host; a
+// loopback hostname is still refused because its resolution cannot be pinned
+// to the loopback interface.
 func NewBusinessHandlerWithMailSync(checkDatabase func(context.Context) error, db *sql.DB, keys *secrets.Keyring, publicOrigin string, policy mailadapter.EndpointPolicy, rootCAs *x509.CertPool) (http.Handler, error) {
 	parsed, err := url.Parse(publicOrigin)
-	if err != nil || parsed.Scheme != "https" || parsed.Host == "" || parsed.User != nil ||
+	if err != nil || parsed.Host == "" || parsed.User != nil ||
 		(parsed.Path != "" && parsed.Path != "/") || parsed.RawQuery != "" || parsed.Fragment != "" || keys == nil {
 		return nil, errors.New("business origin or encryption keys invalid")
 	}
+	if parsed.Scheme != "https" && !(parsed.Scheme == "http" && isLoopbackLiteralHost(parsed.Host)) {
+		return nil, errors.New("business origin or encryption keys invalid")
+	}
 	return &businessHandler{health: NewHandler(checkDatabase), db: db, keys: keys,
-		origin: "https://" + parsed.Host, host: parsed.Host,
+		origin: parsed.Scheme + "://" + parsed.Host, host: parsed.Host,
 		loginSlots: make(chan struct{}, 2), mailPolicy: policy, mailRootCAs: rootCAs,
 		sendWindows: make(map[string]sendCommandWindowState)}, nil
+}
+
+// isLoopbackLiteralHost reports whether hostport (a URL Host) is a loopback
+// IP literal, optionally with a port. Hostnames are never accepted, even
+// "localhost": only a literal pins the origin to the loopback interface.
+func isLoopbackLiteralHost(hostport string) bool {
+	host, _, err := net.SplitHostPort(hostport)
+	if err != nil {
+		host = hostport
+	}
+	ip := net.ParseIP(host)
+	return ip != nil && ip.IsLoopback()
 }
 
 func (h *businessHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {

@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/OpenALC/relay/server/internal/identity"
+	"github.com/OpenALC/relay/server/internal/mailadapter"
 	"github.com/OpenALC/relay/server/internal/secrets"
 	"github.com/OpenALC/relay/server/internal/storage/sqlite"
 )
@@ -147,5 +148,58 @@ func TestOwnerLoginRateLimit(t *testing.T) {
 	handler.ServeHTTP(limited, sessionRequest(http.MethodPost, `{"password":"local owner passphrase"}`))
 	if limited.Code != http.StatusTooManyRequests || limited.Header().Get("Retry-After") != "60" {
 		t.Fatalf("login rate limit failed: %d", limited.Code)
+	}
+}
+
+func TestBusinessOriginSchemes(t *testing.T) {
+	// The encryption keyring is the only dependency origin validation needs
+	// at construction time; storage stays nil on purpose.
+	keys, err := func() (*secrets.Keyring, error) {
+		path := filepath.Join(t.TempDir(), "keys.json")
+		if err := secrets.CreateFile(path); err != nil {
+			return nil, err
+		}
+		return secrets.LoadFile(path)
+	}()
+	if err != nil {
+		t.Fatal(err)
+	}
+	build := func(origin string) error {
+		_, err := NewBusinessHandlerWithMailSync(func(context.Context) error { return nil },
+			nil, keys, origin, mailadapter.EndpointPolicy{}, nil)
+		return err
+	}
+	// Production keeps the HTTPS-only rule.
+	if err := build("https://relay.test"); err != nil {
+		t.Fatalf("https origin rejected: %v", err)
+	}
+	if err := build("http://relay.test"); err == nil {
+		t.Fatal("plain-https public hostname origin must be rejected")
+	}
+	// Plain HTTP is accepted only for loopback IP literals, the local
+	// same-origin serving topology (RELAY_WEB_DIR).
+	for _, origin := range []string{"http://127.0.0.1:18080", "http://127.8.8.8:18080", "http://[::1]:8080"} {
+		if err := build(origin); err != nil {
+			t.Fatalf("loopback http origin %s rejected: %v", origin, err)
+		}
+	}
+	for _, origin := range []string{"http://localhost:18080", "http://192.168.1.5:18080", "http://0.0.0.0:18080"} {
+		if err := build(origin); err == nil {
+			t.Fatalf("non-loopback http origin %s must be rejected", origin)
+		}
+	}
+	// The loopback http origin is also the origin the handler enforces.
+	handler, err := NewBusinessHandlerWithMailSync(func(context.Context) error { return nil },
+		nil, keys, "http://127.0.0.1:18080", mailadapter.EndpointPolicy{}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	request := httptest.NewRequest(http.MethodPost, "http://127.0.0.1:18080/v1/session", nil)
+	request.Header.Set("Origin", "http://127.0.0.1:18080")
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, request)
+	// Not rejected for the origin: an empty body reaches the JSON parse step.
+	if recorder.Code == http.StatusForbidden {
+		t.Fatalf("same-origin login rejected: %d %s", recorder.Code, recorder.Body.String())
 	}
 }

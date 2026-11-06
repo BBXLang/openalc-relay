@@ -2,20 +2,25 @@ package main
 
 import (
 	"context"
+	"crypto/x509"
+	"encoding/pem"
 	"errors"
 	"log/slog"
 	"net"
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
 	"github.com/OpenALC/relay/server/internal/config"
 	"github.com/OpenALC/relay/server/internal/httpapi"
 	"github.com/OpenALC/relay/server/internal/identity"
+	"github.com/OpenALC/relay/server/internal/mailadapter"
 	"github.com/OpenALC/relay/server/internal/secrets"
 	"github.com/OpenALC/relay/server/internal/storage/sqlite"
+	"github.com/OpenALC/relay/server/internal/webapp"
 )
 
 func main() {
@@ -65,7 +70,28 @@ func run() int {
 			logger.Error("business_key_file_invalid")
 			return 1
 		}
-		handler, err = httpapi.NewBusinessHandler(db.PingContext, db, keys, cfg.PublicOrigin)
+		// Mail connection policy: the strict production default is an empty
+		// EndpointPolicy (no private or loopback target). Only an explicitly
+		// configured allowlist (RELAY_MAIL_PRIVATE_ALLOWLIST) installs the
+		// PrivateAllow hook, and only a configured private CA file
+		// (RELAY_MAIL_ROOT_CA_FILE) swaps the trusted root store; both stay
+		// nil otherwise, byte-identical to the previous behavior.
+		var mailPolicy mailadapter.EndpointPolicy
+		if len(cfg.MailPrivateAllowlist) > 0 {
+			allowlist := cfg.MailPrivateAllowlist
+			mailPolicy.PrivateAllow = func(_ mailadapter.ServiceKind, host string, resolved net.IP, port int) bool {
+				return config.MailPrivateAllow(allowlist, host, resolved, port)
+			}
+		}
+		var mailRootCAs *x509.CertPool
+		if cfg.MailRootCAFile != "" {
+			mailRootCAs, err = loadMailRootCAs(cfg.MailRootCAFile)
+			if err != nil {
+				logger.Error("mail_root_ca_file_invalid")
+				return 1
+			}
+		}
+		handler, err = httpapi.NewBusinessHandlerWithMailSync(db.PingContext, db, keys, cfg.PublicOrigin, mailPolicy, mailRootCAs)
 		if err != nil {
 			logger.Error("business_origin_invalid")
 			return 1
@@ -73,6 +99,13 @@ func run() int {
 	} else if cfg.MasterKeyFile != "" || cfg.PublicOrigin != "" {
 		logger.Error("owner_not_initialized")
 		return 1
+	}
+	if cfg.WebDir != "" {
+		handler, err = composeRoot(handler, cfg.WebDir)
+		if err != nil {
+			logger.Error("web_dir_invalid")
+			return 1
+		}
 	}
 	listener, err := net.Listen("tcp", cfg.HTTPAddr)
 	if err != nil {
@@ -116,4 +149,68 @@ func run() int {
 	}
 	logger.Info("server_stopped")
 	return 0
+}
+
+// composeRoot layers the static web application in front of the business
+// handler when RELAY_WEB_DIR is set. Priority stays with the API: /healthz,
+// /readyz and every /v1 path are served by the business handler exactly as
+// before; everything else falls through to the web application, which serves
+// /assets/* with long-lived caching and falls back to index.html for
+// extensionless GET paths (the SPA uses hash routing). Without RELAY_WEB_DIR
+// the business handler is returned unchanged, byte-identical behavior.
+func composeRoot(business http.Handler, webDir string) (http.Handler, error) {
+	if webDir == "" {
+		return business, nil
+	}
+	web, err := webapp.New(webDir)
+	if err != nil {
+		return nil, err
+	}
+	return rootHandler{business: business, web: web}, nil
+}
+
+type rootHandler struct {
+	business http.Handler
+	web      http.Handler
+}
+
+func (h rootHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	p := r.URL.Path
+	if p == "/healthz" || p == "/readyz" || p == "/v1" || strings.HasPrefix(p, "/v1/") {
+		h.business.ServeHTTP(w, r)
+		return
+	}
+	h.web.ServeHTTP(w, r)
+}
+
+// loadMailRootCAs reads a PEM certificate bundle for verifying mail servers
+// with a private (test environment) CA. Verification itself is never skipped:
+// the bundle only swaps the trust store.
+func loadMailRootCAs(path string) (*x509.CertPool, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	pool := x509.NewCertPool()
+	found := false
+	for rest := data; len(rest) > 0; {
+		var block *pem.Block
+		block, rest = pem.Decode(rest)
+		if block == nil {
+			break
+		}
+		if block.Type != "CERTIFICATE" {
+			continue
+		}
+		cert, err := x509.ParseCertificate(block.Bytes)
+		if err != nil {
+			return nil, err
+		}
+		pool.AddCert(cert)
+		found = true
+	}
+	if !found {
+		return nil, errors.New("no PEM certificate found")
+	}
+	return pool, nil
 }
