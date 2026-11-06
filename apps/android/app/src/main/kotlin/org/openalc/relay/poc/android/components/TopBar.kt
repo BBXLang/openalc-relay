@@ -3,6 +3,7 @@ package org.openalc.relay.poc.android.components
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Row
@@ -18,9 +19,12 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
@@ -105,15 +109,22 @@ private fun SegmentTab(
     onClick: () -> Unit,
 ) {
     val palette = LocalRelayPalette.current
+    val interaction = remember { MutableInteractionSource() }
     Box(
         modifier = modifier
             .fillMaxHeight()
+            // Clip before clickable so the ripple stays inside the pill instead of a square flash.
+            .clip(RoundedCornerShape(50))
             .semantics {
                 role = Role.Tab
                 selected = isSelected
                 contentDescription = title
             }
-            .clickable(onClick = onClick),
+            .clickable(
+                interactionSource = interaction,
+                indication = ripple(bounded = true),
+                onClick = onClick,
+            ),
         contentAlignment = Alignment.Center,
     ) {
         Text(title, fontSize = 15.sp, color = palette.ink)
@@ -129,11 +140,18 @@ fun CircleIconButton(
     containerColor: Color = LocalRelayPalette.current.surface,
     content: @Composable () -> Unit,
 ) {
+    val interaction = remember { MutableInteractionSource() }
     Surface(
         modifier = modifier
             .size(48.dp)
+            // Clip before clickable so the ripple stays inside the circle instead of a square flash.
+            .clip(CircleShape)
             .semantics { this.contentDescription = contentDescription }
-            .clickable(onClick = onClick),
+            .clickable(
+                interactionSource = interaction,
+                indication = ripple(bounded = true),
+                onClick = onClick,
+            ),
         shape = CircleShape,
         color = containerColor,
     ) {

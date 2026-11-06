@@ -2,7 +2,9 @@ package org.openalc.relay.poc.android.components
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -10,19 +12,25 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
@@ -73,12 +81,15 @@ fun ComposeDock(
         color = palette.surface,
         shape = RoundedCornerShape(32.dp),
     ) {
-        Column(Modifier.padding(horizontal = 12.dp, vertical = 10.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.padding(horizontal = 12.dp, vertical = 6.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 9.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
                 BasicTextField(
                     value = recipient,
                     onValueChange = onRecipientChange,
-                    modifier = Modifier.weight(1f).padding(horizontal = 8.dp),
+                    modifier = Modifier.weight(1f),
                     singleLine = true,
                     textStyle = TextStyle(color = palette.ink, fontSize = 13.sp),
                     cursorBrush = SolidColor(palette.ink),
@@ -92,35 +103,50 @@ fun ComposeDock(
                     },
                 )
             }
-            Spacer(Modifier.height(6.dp))
+            // Light divider between the recipient row and the body row (user feedback 2026-11-06).
+            HorizontalDivider(thickness = 1.dp, color = palette.segment)
             Row(
-                modifier = Modifier.fillMaxWidth().height(52.dp),
+                modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Box(
+                val chipInteraction = remember { MutableInteractionSource() }
+                Row(
                     modifier = Modifier
-                        .size(40.dp)
-                        .background(palette.segment, CircleShape)
-                        .clickable(onClick = onPickSource),
-                    contentAlignment = Alignment.Center,
+                        .clip(RoundedCornerShape(14.dp))
+                        .border(1.dp, palette.muted.copy(alpha = 0.35f), RoundedCornerShape(14.dp))
+                        .clickable(
+                            interactionSource = chipInteraction,
+                            indication = ripple(bounded = true),
+                            onClick = onPickSource,
+                        )
+                        .padding(horizontal = 10.dp, vertical = 5.dp),
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    if (isSmsChannel) DeviceSimGlyph(palette.ink) else EnvelopeGlyph(palette.ink)
-                }
-                Column(Modifier.width(74.dp).padding(start = 8.dp)) {
-                    Text(
-                        stringResource(if (isSmsChannel) R.string.compose_source_sms else R.string.compose_source_mail),
-                        fontSize = 9.sp,
-                        color = palette.muted,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                    Text(
-                        sourceSummary ?: stringResource(R.string.compose_source_unselected),
-                        fontSize = 10.sp,
-                        color = palette.ink,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
+                    Box(
+                        modifier = Modifier.size(18.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        if (isSmsChannel) DeviceSimGlyph(palette.ink) else EnvelopeGlyph(palette.ink)
+                    }
+                    Spacer(Modifier.width(6.dp))
+                    Column(Modifier.widthIn(min = 64.dp)) {
+                        Text(
+                            stringResource(
+                                if (isSmsChannel) R.string.compose_source_sms else R.string.compose_source_mail,
+                            ),
+                            fontSize = 9.sp,
+                            color = palette.muted,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        Text(
+                            sourceSummary ?: stringResource(R.string.compose_source_unselected),
+                            fontSize = 11.sp,
+                            color = palette.ink,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
                 }
                 BasicTextField(
                     value = body,
@@ -156,7 +182,7 @@ fun ComposeDock(
                     SendGlyph(palette.contentOnYellow)
                 }
             }
-            Spacer(Modifier.height(4.dp))
+            Spacer(Modifier.height(2.dp))
             Text(
                 stringResource(R.string.compose_send_disabled_reason),
                 modifier = Modifier.padding(start = 10.dp),

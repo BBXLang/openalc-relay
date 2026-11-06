@@ -4,6 +4,7 @@ import android.provider.Settings
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -32,6 +33,7 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import org.openalc.relay.poc.android.R
 import org.openalc.relay.poc.android.components.ComposeDock
@@ -47,6 +49,7 @@ import org.openalc.relay.poc.android.screens.SmsDetailScreen
 import org.openalc.relay.poc.android.screens.SmsListScreen
 import org.openalc.relay.poc.android.screens.SyntheticVerificationScreen
 import org.openalc.relay.poc.android.screens.MailListScreen
+import org.openalc.relay.poc.android.theme.LocalRelayPalette
 
 /**
  * Navigation host with a self-managed back stack (no navigation library). System back pops one
@@ -58,6 +61,11 @@ fun RelayApp(state: RelayAppState, poc: PocUiState) {
     val drawerState = rememberDrawerState(DrawerValue.Closed)
     val scope = rememberCoroutineScope()
     val openDrawer: () -> Unit = { scope.launch { drawerState.open() } }
+    // Navigating from the drawer always closes it first (device-verified inconsistency, 2026-11-06).
+    val openFromDrawer: (RelayDestination) -> Unit = { destination ->
+        scope.launch { drawerState.close() }
+        state.open(destination)
+    }
 
     BackHandler(enabled = state.canGoBack) { state.back() }
 
@@ -67,14 +75,23 @@ fun RelayApp(state: RelayAppState, poc: PocUiState) {
             RelayDrawerContent(
                 devices = emptyList(),
                 accounts = emptyList(),
-                onDeviceClick = { id -> state.open(RelayDestination.DeviceDetail(id)) },
-                onSelectAccount = { state.switchChannel(RelayChannel.MAIL) },
-                onAddAccount = { state.open(RelayDestination.MailAccounts) },
-                onOpenSettings = { state.open(RelayDestination.Settings) },
+                onDeviceClick = { id -> openFromDrawer(RelayDestination.DeviceDetail(id)) },
+                onSelectAccount = {
+                    scope.launch { drawerState.close() }
+                    state.switchChannel(RelayChannel.MAIL)
+                },
+                onAddAccount = { openFromDrawer(RelayDestination.MailAccounts) },
+                onOpenSettings = { openFromDrawer(RelayDestination.Settings) },
             )
         },
     ) {
-        Box(Modifier.fillMaxSize()) {
+        // Paint the canvas so transparent list areas never expose the (light) window background
+        // in dark mode (device-verified defect D1, 2026-11-06).
+        Box(
+            Modifier
+                .fillMaxSize()
+                .background(LocalRelayPalette.current.canvas),
+        ) {
             when (val top = state.top()) {
                 is RelayDestination.SmsList, is RelayDestination.MailList ->
                     HomeScreen(state = state, onMenu = openDrawer)
@@ -105,8 +122,8 @@ fun RelayApp(state: RelayAppState, poc: PocUiState) {
 @Composable
 fun HomeScreen(state: RelayAppState, onMenu: () -> Unit) {
     val animationMillis = rememberChannelAnimationMillis()
-    val shift = remember { ChannelShiftState(state.channel) }
     val scope = rememberCoroutineScope()
+    val shift = remember { ChannelShiftState(state.channel, scope) }
     var showSourceNotice by remember { mutableStateOf(false) }
 
     // Drive the shared slide progress whenever the channel changes (tab click or swipe commit).
@@ -175,14 +192,10 @@ private fun channelText(channel: RelayChannel, smsRes: Int, mailRes: Int): Strin
  */
 @Composable
 private fun ChannelPager(state: RelayAppState, shift: ChannelShiftState, modifier: Modifier = Modifier) {
-    var contentWidthPx by remember { mutableFloatStateOf(1f) }
     Box(
         modifier
             .fillMaxWidth()
-            .onSizeChanged {
-                contentWidthPx = it.width.toFloat().coerceAtLeast(1f)
-                shift.onContentWidthChanged(contentWidthPx)
-            }
+            .onSizeChanged { shift.onContentWidthChanged(it.width.toFloat()) }
             .pointerInput(Unit) {
                 detectHorizontalDragGestures(
                     onHorizontalDrag = { change, dragAmount ->
@@ -190,12 +203,14 @@ private fun ChannelPager(state: RelayAppState, shift: ChannelShiftState, modifie
                         shift.onDrag(dragAmount)
                     },
                     onDragEnd = {
-                        val commit = shift.commitDrag(contentWidthPx, state.channel)
+                        val commit = shift.commitDrag(state.channel)
                         if (commit != null) {
                             state.switchChannel(commit)
+                        } else {
+                            shift.cancel(state.channel)
                         }
                     },
-                    onDragCancel = { shift.cancelDrag() },
+                    onDragCancel = { shift.cancel(state.channel) },
                 )
             },
     ) {
@@ -218,49 +233,51 @@ private fun ChannelPager(state: RelayAppState, shift: ChannelShiftState, modifie
 
 /**
  * Shared slide progress for the top bar segment background and the list content area.
- * `progress` is 0 for SMS and 1 for mail; drag offsets are layered on top while swiping
- * so the content follows the finger.
+ * `visualRatio` is the single source of truth: 0 for SMS, 1 for mail, and every intermediate value
+ * while dragging. Animatable is always snapped to the exact visual position before animating, so a
+ * committed swipe continues smoothly from where the finger left off instead of jumping back first.
  */
-class ChannelShiftState(initialChannel: RelayChannel) {
+class ChannelShiftState(initialChannel: RelayChannel, private val scope: CoroutineScope) {
     private val progress = Animatable(if (initialChannel == RelayChannel.MAIL) 1f else 0f)
-    private var dragPx by mutableStateOf(0f)
 
-    /** Current visual ratio including any active drag, clamped to [0, 1] for rendering. */
-    fun ratio(): Float = (progress.value + dragPx / contentWidthPx).coerceIn(0f, 1f)
-
+    private var visualRatio by mutableFloatStateOf(
+        if (initialChannel == RelayChannel.MAIL) 1f else 0f,
+    )
     private var contentWidthPx: Float = 1f
+
+    /** Current visual ratio for rendering, clamped to [0, 1]. */
+    fun ratio(): Float = visualRatio.coerceIn(0f, 1f)
 
     fun onContentWidthChanged(widthPx: Float) {
         contentWidthPx = widthPx.coerceAtLeast(1f)
     }
 
-    /** dragPx is the distance dragged toward mail (positive) or back toward SMS (negative). */
+    /** dragAmountPx is the finger movement toward mail (negative) or back toward SMS (positive). */
     fun onDrag(dragAmountPx: Float) {
-        dragPx -= dragAmountPx
+        visualRatio = (visualRatio - dragAmountPx / contentWidthPx).coerceIn(0f, 1f)
     }
 
     /** Ends the drag; returns the channel to commit, or null when the swipe is below the threshold. */
-    fun commitDrag(contentWidthPx: Float, current: RelayChannel): RelayChannel? {
-        onContentWidthChanged(contentWidthPx)
-        val dragged = dragPx / this.contentWidthPx
-        dragPx = 0f
-        return when (current) {
-            RelayChannel.SMS -> if (dragged > COMMIT_THRESHOLD) RelayChannel.MAIL else null
-            RelayChannel.MAIL -> if (dragged < -COMMIT_THRESHOLD) RelayChannel.SMS else null
-        }
+    fun commitDrag(current: RelayChannel): RelayChannel? = when (current) {
+        RelayChannel.SMS -> if (ratio() > COMMIT_THRESHOLD) RelayChannel.MAIL else null
+        RelayChannel.MAIL -> if (ratio() < 1f - COMMIT_THRESHOLD) RelayChannel.SMS else null
     }
 
-    fun cancelDrag() {
-        dragPx = 0f
+    /** Below-threshold end or cancellation: keep the visual position and slide back to `channel`. */
+    fun cancel(channel: RelayChannel) {
+        scope.launch { animateTo(channel, CHANNEL_ANIMATION_MILLIS) }
     }
 
     suspend fun animateTo(channel: RelayChannel, durationMillis: Int) {
         val target = if (channel == RelayChannel.MAIL) 1f else 0f
+        // Start from the exact visual position so a committed drag never jumps back first.
+        progress.snapTo(ratio())
         if (durationMillis <= 0) {
             progress.snapTo(target)
         } else {
             progress.animateTo(target, tween(durationMillis))
         }
+        visualRatio = target
     }
 
     private companion object {

@@ -32,6 +32,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -75,10 +76,13 @@ fun RelayDrawerContent(
     var devicesExpanded by remember { mutableStateOf(true) }
     var mailExpanded by remember { mutableStateOf(false) }
     var showPairingNotice by remember { mutableStateOf(false) }
+    // ~56% of the screen, capped so the drawer never dominates narrow phones nor balloons on tablets.
+    val screenWidth = LocalConfiguration.current.screenWidthDp.dp
+    val drawerWidth = (screenWidth * 0.56f).coerceIn(220.dp, 300.dp)
 
     Column(
         modifier = modifier
-            .width(320.dp)
+            .width(drawerWidth)
             .fillMaxSize()
             .background(palette.canvas)
             .statusBarsPadding()
